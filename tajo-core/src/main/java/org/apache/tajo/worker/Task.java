@@ -374,18 +374,15 @@ public class Task {
         context.setFetcherProgress(FETCHER_PROGRESS);
         context.setProgress(FETCHER_PROGRESS);
       }
+      this.executor = taskRunnerContext.getTQueryEngine().
+          createPlan(context, plan);
+      this.executor.init();
 
-      if (context.getFragmentSize() > 0) {
-        this.executor = taskRunnerContext.getTQueryEngine().
-            createPlan(context, plan);
-        this.executor.init();
-
-        while(!killed && executor.next() != null) {
-        }
-        this.executor.close();
-        reloadInputStats();
-        this.executor = null;
+      while(!killed && executor.next() != null) {
       }
+      this.executor.close();
+      reloadInputStats();
+      this.executor = null;
     } catch (Exception e) {
       error = e ;
       LOG.error(e.getMessage(), e);

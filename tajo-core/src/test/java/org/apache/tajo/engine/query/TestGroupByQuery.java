@@ -304,4 +304,80 @@ public class TestGroupByQuery extends QueryTestCaseBase {
     assertResultSet(res);
     cleanupQuery(res);
   }
+
+  @Test
+  public final void testGroupByWithNullData1() throws Exception {
+    ResultSet res = executeQuery();
+    assertResultSet(res);
+    cleanupQuery(res);
+  }
+
+  @Test
+  public final void testGroupByWithNullData2() throws Exception {
+    ResultSet res = executeQuery();
+    assertResultSet(res);
+    cleanupQuery(res);
+  }
+
+  @Test
+  public final void testGroupByWithNullData3() throws Exception {
+    ResultSet res = executeQuery();
+    assertResultSet(res);
+    cleanupQuery(res);
+  }
+
+  @Test
+  public final void testGroupByWithNullData4() throws Exception {
+    ResultSet res = executeQuery();
+    assertResultSet(res);
+    cleanupQuery(res);
+  }
+
+  @Test
+  public final void testGroupByWithNullData5() throws Exception {
+    executeString("CREATE TABLE table1 (age INT4, point FLOAT4);").close();
+    assertTableExists("table1");
+
+    ResultSet res = executeQuery();
+    assertResultSet(res);
+    cleanupQuery(res);
+
+    executeString("DROP TABLE table1");
+  }
+
+  @Test
+  public final void testGroupByWithNullData6() throws Exception {
+    executeString("CREATE TABLE table1 (age INT4, point FLOAT4);").close();
+    assertTableExists("table1");
+
+    ResultSet res = executeQuery();
+    assertResultSet(res);
+    cleanupQuery(res);
+
+    executeString("DROP TABLE table1");
+  }
+
+  @Test
+  public final void testGroupByWithNullData7() throws Exception {
+    executeString("CREATE TABLE table1 (age INT4, point FLOAT4);").close();
+    assertTableExists("table1");
+
+    ResultSet res = executeQuery();
+    assertResultSet(res);
+    cleanupQuery(res);
+
+    executeString("DROP TABLE table1");
+  }
+
+  @Test
+  public final void testGroupByWithNullData8() throws Exception {
+    executeString("CREATE TABLE table1 (age INT4, point FLOAT4);").close();
+    assertTableExists("table1");
+
+    ResultSet res = executeQuery();
+    assertResultSet(res);
+    cleanupQuery(res);
+
+    executeString("DROP TABLE table1");
+  }
 }

@@ -18,6 +18,9 @@
 
 package org.apache.tajo.engine.planner.physical;
 
+import org.apache.tajo.common.TajoDataTypes;
+import org.apache.tajo.datum.DatumFactory;
+import org.apache.tajo.datum.NullDatum;
 import org.apache.tajo.engine.function.FunctionContext;
 import org.apache.tajo.engine.planner.logical.GroupbyNode;
 import org.apache.tajo.storage.Tuple;
@@ -47,6 +50,7 @@ public class SortAggregateExec extends AggregationExec {
 
   public SortAggregateExec(TaskAttemptContext context, GroupbyNode plan, PhysicalExec child) throws IOException {
     super(context, plan, child);
+
     contexts = new FunctionContext[plan.getAggFunctions() == null ? 0 : plan.getAggFunctions().length];
   }
 
@@ -55,6 +59,7 @@ public class SortAggregateExec extends AggregationExec {
     Tuple currentKey;
     Tuple tuple = null;
     Tuple outputTuple = null;
+    int nullCount = 0;
 
     while(!context.isStopped() && (tuple = child.next()) != null) {
       // get a key tuple
@@ -69,6 +74,12 @@ public class SortAggregateExec extends AggregationExec {
           for(int i = 0; i < aggFunctionsNum; i++) {
             contexts[i] = aggFunctions[i].newContext();
             aggFunctions[i].merge(contexts[i], inSchema, tuple);
+
+            // Find NullDatum in a tuple
+            if (groupingKeyNum == 0 && aggFunctionsNum == tuple.size()
+                && tuple.get(i) == NullDatum.get()) {
+              nullCount++;
+            }
           }
           lastKey = currentKey;
         } else {
@@ -115,6 +126,30 @@ public class SortAggregateExec extends AggregationExec {
       }
       finished = true;
     }
+
+    // If SortAggregateExec received NullDatum and didn't has any grouping keys,
+    // it should return primitive values for NullDatum.
+    if (finished && groupingKeyNum == 0 && aggFunctionsNum > 0 && nullCount == aggFunctionsNum) {
+      NullDatum nullDatum = DatumFactory.createNullDatum();
+
+      for (int i = 0; i < outColumnNum; i++) {
+        TajoDataTypes.Type type = outSchema.getColumn(i).getDataType().getType();
+        if (type == TajoDataTypes.Type.INT8) {
+          outputTuple.put(i, DatumFactory.createInt8(nullDatum.asInt8()));
+        } else if (type == TajoDataTypes.Type.INT4) {
+          outputTuple.put(i, DatumFactory.createInt4(nullDatum.asInt4()));
+        } else if (type == TajoDataTypes.Type.INT2) {
+          outputTuple.put(i, DatumFactory.createInt2(nullDatum.asInt2()));
+        } else if (type == TajoDataTypes.Type.FLOAT4) {
+          outputTuple.put(i, DatumFactory.createFloat4(nullDatum.asFloat4()));
+        } else if (type == TajoDataTypes.Type.FLOAT8) {
+          outputTuple.put(i, DatumFactory.createFloat8(nullDatum.asFloat8()));
+        } else {
+          outputTuple.put(i, DatumFactory.createNullDatum());
+        }
+      }
+    }
+
     return outputTuple;
   }
 
