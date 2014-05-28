@@ -31,6 +31,7 @@ import org.apache.tajo.TajoTestingCluster;
 import org.apache.tajo.catalog.CatalogService;
 import org.apache.tajo.catalog.CatalogUtil;
 import org.apache.tajo.catalog.TableDesc;
+import org.apache.tajo.ipc.ClientProtos;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -59,7 +60,8 @@ public class TestTablePartitions extends QueryTestCaseBase {
     assertEquals(3, catalog.getTableDesc(DEFAULT_DATABASE_NAME, tableName).getLogicalSchema().size());
 
     res = testBase.execute(
-        "insert overwrite into " + tableName + " select l_orderkey, l_partkey, l_quantity from lineitem");
+        "insert overwrite into " + tableName + " select l_orderkey, l_partkey, " +
+            "l_quantity from lineitem");
     res.close();
   }
 
@@ -484,6 +486,46 @@ public class TestTablePartitions extends QueryTestCaseBase {
 
     res = executeString("select * from " + tableName + " where col2 = 9");
     assertFalse(res.next());
+    res.close();
+  }
+
+  @Test
+  public final void testColumnPartitionedTableWithSmallerExpressions1() throws Exception {
+    String tableName = CatalogUtil.normalizeIdentifier("testColumnPartitionedTableWithSmallerExpressions1");
+    ResultSet res = executeString(
+        "create table " + tableName + " (col1 int4, col2 int4, null_col int4) partition by column(key float8) ");
+    res.close();
+
+    assertTrue(catalog.existsTable(DEFAULT_DATABASE_NAME, tableName));
+
+    ClientProtos.SubmitQueryResponse response = client.executeQuery("insert overwrite into " + tableName
+        + " select l_orderkey, l_partkey from lineitem");
+
+    assertTrue(response.hasErrorMessage());
+    assertEquals(response.getErrorMessage(), "INSERT has smaller expressions than target columns\n");
+
+    res = executeFile("case14.sql");
+    assertResultSet(res, "case14.result");
+    res.close();
+  }
+
+  @Test
+  public final void testColumnPartitionedTableWithSmallerExpressions2() throws Exception {
+    String tableName = CatalogUtil.normalizeIdentifier("testColumnPartitionedTableWithSmallerExpressions2");
+    ResultSet res = executeString(
+        "create table " + tableName + " (col1 int4, col2 int4, null_col int4) partition by column(key float8) ");
+    res.close();
+
+    assertTrue(catalog.existsTable(DEFAULT_DATABASE_NAME, tableName));
+
+    ClientProtos.SubmitQueryResponse response = client.executeQuery("insert overwrite into " + tableName
+        + " select l_returnflag , l_orderkey, l_partkey from lineitem");
+
+    assertTrue(response.hasErrorMessage());
+    assertEquals(response.getErrorMessage(), "INSERT has smaller expressions than target columns\n");
+
+    res = executeFile("case15.sql");
+    assertResultSet(res, "case15.result");
     res.close();
   }
 }
