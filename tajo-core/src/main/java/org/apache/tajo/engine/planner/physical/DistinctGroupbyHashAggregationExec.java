@@ -160,7 +160,7 @@ public class DistinctGroupbyHashAggregationExec extends PhysicalExec {
 
       // If DistinctGroupbyHashAggregationExec didn't has any rows,
       // it should return NullDatum.
-      if (totalNumRows == 0) {
+      if (totalNumRows == 0 && groupbyNodeNum == 0) {
         Tuple tuple = new VTuple(hashAggregators.length);
         for (int i = 0; i < tuple.size(); i++) {
           tuple.put(i, DatumFactory.createNullDatum());

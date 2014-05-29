@@ -374,6 +374,7 @@ public class Task {
         context.setFetcherProgress(FETCHER_PROGRESS);
         context.setProgress(FETCHER_PROGRESS);
       }
+
       this.executor = taskRunnerContext.getTQueryEngine().
           createPlan(context, plan);
       this.executor.init();

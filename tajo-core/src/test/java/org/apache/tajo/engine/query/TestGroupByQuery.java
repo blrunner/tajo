@@ -29,7 +29,7 @@ import java.sql.ResultSet;
 @Category(IntegrationTest.class)
 public class TestGroupByQuery extends QueryTestCaseBase {
 
-  public TestGroupByQuery() {
+  public TestGroupByQuery() throws Exception {
     super(TajoConstants.DEFAULT_DATABASE_NAME);
   }
 
@@ -374,6 +374,15 @@ public class TestGroupByQuery extends QueryTestCaseBase {
     executeString("CREATE TABLE table1 (age INT4, point FLOAT4);").close();
     assertTableExists("table1");
 
+    ResultSet res = executeQuery();
+    assertResultSet(res);
+    cleanupQuery(res);
+
+    executeString("DROP TABLE table1");
+  }
+
+  @Test
+  public final void testGroupByWithNullData9() throws Exception {
     ResultSet res = executeQuery();
     assertResultSet(res);
     cleanupQuery(res);
