@@ -87,7 +87,9 @@ public class DistinctGroupbySortAggregationExec extends PhysicalExec {
       if (first && i > 0) {
         // All SortAggregateExec uses same SeqScanExec object.
         // After running sort, rescan() should be called.
-        aggregateExecs[i].rescan();
+        if (currentTuples[i-1] != null) {
+          aggregateExecs[i].rescan();
+        }
       }
       currentTuples[i] = aggregateExecs[i].next();
 
@@ -98,32 +100,30 @@ public class DistinctGroupbySortAggregationExec extends PhysicalExec {
 
     // If DistinctGroupbySortAggregationExec received NullDatum and didn't has any grouping keys,
     // it should return primitive values for NullDatum.
-    if (allNull && groupbyNodeNum == 1 && aggregateExecs.length == 1 && first)   {
-      if (aggregateExecs[0].groupingKeyNum == 0) {
-        Tuple tuple = new VTuple(aggregateExecs[0].aggFunctionsNum);
-        NullDatum nullDatum = DatumFactory.createNullDatum();
+    if (allNull && aggregateExecs[0].groupingKeyNum == 0 && first)   {
+      Tuple tuple = new VTuple(outColumnNum);
+      NullDatum nullDatum = DatumFactory.createNullDatum();
 
-        for (int i = 0; i < outColumnNum; i++) {
-          TajoDataTypes.Type type = outSchema.getColumn(i).getDataType().getType();
-          if (type == TajoDataTypes.Type.INT8) {
-            tuple.put(i, DatumFactory.createInt8(nullDatum.asInt8()));
-          } else if (type == TajoDataTypes.Type.INT4) {
-            tuple.put(i, DatumFactory.createInt4(nullDatum.asInt4()));
-          } else if (type == TajoDataTypes.Type.INT2) {
-            tuple.put(i, DatumFactory.createInt2(nullDatum.asInt2()));
-          } else if (type == TajoDataTypes.Type.FLOAT4) {
-            tuple.put(i, DatumFactory.createFloat4(nullDatum.asFloat4()));
-          } else if (type == TajoDataTypes.Type.FLOAT8) {
-            tuple.put(i, DatumFactory.createFloat8(nullDatum.asFloat8()));
-          } else {
-            tuple.put(i, DatumFactory.createNullDatum());
-          }
+      for (int i = 0; i < outColumnNum; i++) {
+        TajoDataTypes.Type type = outSchema.getColumn(i).getDataType().getType();
+        if (type == TajoDataTypes.Type.INT8) {
+          tuple.put(i, DatumFactory.createInt8(nullDatum.asInt8()));
+        } else if (type == TajoDataTypes.Type.INT4) {
+          tuple.put(i, DatumFactory.createInt4(nullDatum.asInt4()));
+        } else if (type == TajoDataTypes.Type.INT2) {
+          tuple.put(i, DatumFactory.createInt2(nullDatum.asInt2()));
+        } else if (type == TajoDataTypes.Type.FLOAT4) {
+          tuple.put(i, DatumFactory.createFloat4(nullDatum.asFloat4()));
+        } else if (type == TajoDataTypes.Type.FLOAT8) {
+          tuple.put(i, DatumFactory.createFloat8(nullDatum.asFloat8()));
+        } else {
+          tuple.put(i, DatumFactory.createNullDatum());
         }
-
-        finished = true;
-        first = false;
-        return tuple;
       }
+
+      finished = true;
+      first = false;
+      return tuple;
     }
 
     first = false;
