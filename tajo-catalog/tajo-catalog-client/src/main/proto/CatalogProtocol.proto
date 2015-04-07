@@ -58,6 +58,7 @@ service CatalogProtocolService {
 
   rpc getPartitionByPartitionName(PartitionIdentifierProto) returns (PartitionDescProto);
   rpc getPartitionsByTableName(PartitionIdentifierProto) returns (PartitionsProto);
+  rpc getPartitionsWithConditionFilters(PartitionIdentifierProto) returns (GetTablePartitionsProto);
   rpc getAllPartitions(NullProto) returns (GetTablePartitionsProto);
 
   rpc createIndex(IndexDescProto) returns (BoolProto);

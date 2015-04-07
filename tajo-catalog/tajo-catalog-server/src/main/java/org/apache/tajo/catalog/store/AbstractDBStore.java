@@ -2150,6 +2150,65 @@ public abstract class AbstractDBStore extends CatalogConstants implements Catalo
   }
 
   @Override
+  public List<TablePartitionProto> getPartitionsWithConditionFilters(String databaseName, String tableName,
+                                                                      List<String> filters) throws CatalogException {
+    Connection conn = null;
+    PreparedStatement pstmt = null;
+    ResultSet res = null;
+
+    List<TablePartitionProto> partitions = new ArrayList<TablePartitionProto>();
+
+    try {
+      int databaseId = getDatabaseId(databaseName);
+      int tableId = getTableId(databaseId, databaseName, tableName);
+
+      StringBuilder sb = new StringBuilder();
+      sb.append("SELECT A." + COL_PARTITIONS_PK + ", MAX(A.PARTITION_NAME) AS PARTITION_NAME, MAX(A.PATH) AS PATH");
+      sb.append("\n FROM PARTITIONS A, ( ");
+      sb.append("\n   SELECT B.PARTITION_ID ");
+      sb.append("\n FROM PARTITION_KEYS B ");
+      sb.append("\n WHERE B.PARTITION_ID > 0 ");
+      sb.append("\n AND ( ");
+
+      for (int i = 0; i < filters.size(); i++) {
+        if (i > 0) {
+          sb.append("\n OR ");
+        }
+        sb.append(filters.get(i));
+      }
+
+      sb.append("\n ) ");
+      sb.append("\n ) B ");
+      sb.append("\n WHERE A.PARTITION_ID > 0 ");
+      sb.append("\n AND A.TID = ? ");
+      sb.append("\n AND A.PARTITION_ID = B.PARTITION_ID ");
+      sb.append("\n GROUP BY A." + COL_PARTITIONS_PK);
+
+      conn = getConnection();
+      pstmt = conn.prepareStatement(sb.toString());
+      pstmt.setInt(1, tableId);
+      res = pstmt.executeQuery();
+
+      while (res.next()) {
+        TablePartitionProto.Builder builder = TablePartitionProto.newBuilder();
+
+        builder.setPartitionId(res.getInt(COL_PARTITIONS_PK));
+        builder.setTid(tableId);
+        builder.setPartitionName(res.getString("PARTITION_NAME"));
+        builder.setPath(res.getString("PATH"));
+
+        partitions.add(builder.build());
+      }
+    } catch (SQLException se) {
+      throw new CatalogException(se);
+    } finally {
+      CatalogUtil.closeQuietly(pstmt, res);
+    }
+
+    return partitions;
+  }
+
+  @Override
   public List<TablePartitionProto> getAllPartitions() throws CatalogException {
     Connection conn = null;
     Statement stmt = null;

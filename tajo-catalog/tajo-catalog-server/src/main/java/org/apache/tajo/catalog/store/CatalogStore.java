@@ -113,6 +113,9 @@ public interface CatalogStore extends Closeable {
   CatalogProtos.PartitionDescProto getPartition(String databaseName, String tableName,
                                                 String partitionName) throws CatalogException;
 
+  List<TablePartitionProto> getPartitionsWithConditionFilters(String databaseName, String tableName,
+                                               List<String> filters) throws CatalogException;
+
   List<TablePartitionProto> getAllPartitions() throws CatalogException;
 
   /**************************** INDEX *******************************/

@@ -803,6 +803,12 @@ public class HCatalogStore extends CatalogConstants implements CatalogStore {
 
 
   @Override
+  public List<TablePartitionProto> getPartitionsWithConditionFilters(String databaseName,
+                                                      String tableName, List<String> filters) throws CatalogException {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
   public CatalogProtos.PartitionDescProto getPartition(String databaseName, String tableName,
                                                        String partitionName) throws CatalogException {
     HCatalogStoreClientPool.HCatalogStoreClient client = null;

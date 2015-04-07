@@ -454,6 +454,31 @@ public abstract class AbstractCatalogClient implements CatalogService {
       return null;
     }
   }
+
+  @Override
+  public List<TablePartitionProto> getPartitionsWithConditionFilters(final String databaseName,
+                                                                     final String tableName,
+                                                                     final List<String> filters) {
+    try {
+      return new ServerCallable<List<TablePartitionProto>>(pool, getCatalogServerAddr(), CatalogProtocol.class, false) {
+
+        @Override
+        public List<TablePartitionProto> call(NettyClientBase client) throws Exception {
+          PartitionIdentifierProto.Builder builder = PartitionIdentifierProto.newBuilder();
+          builder.setDatabaseName(databaseName);
+          builder.setTableName(tableName);
+          builder.addAllFilter(filters);
+
+          CatalogProtocolService.BlockingInterface stub = getStub(client);
+          GetTablePartitionsProto response = stub.getPartitionsWithConditionFilters(null, builder.build());
+          return response.getPartList();
+        }
+      }.withRetries();
+    } catch (ServiceException e) {
+      LOG.error(e.getMessage(), e);
+      return null;
+    }
+  }
   @Override
   public List<TablePartitionProto> getAllPartitions() {
     try {

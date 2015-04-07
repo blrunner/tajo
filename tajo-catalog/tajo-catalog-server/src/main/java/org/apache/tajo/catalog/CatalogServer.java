@@ -906,6 +906,48 @@ public class CatalogServer extends AbstractService {
     }
 
     @Override
+    public GetTablePartitionsProto getPartitionsWithConditionFilters(RpcController controller, PartitionIdentifierProto request)
+      throws ServiceException {
+      String databaseName = request.getDatabaseName();
+      String tableName = request.getTableName();
+
+      if (metaDictionary.isSystemDatabase(databaseName)) {
+        throw new ServiceException(databaseName + " is a system databsae. It does not contain any partitioned tables.");
+      }
+
+      rlock.lock();
+      try {
+        boolean contain;
+
+        contain = store.existDatabase(databaseName);
+        if (contain) {
+          contain = store.existTable(databaseName, tableName);
+          if (contain) {
+            if (store.existPartitionMethod(databaseName, tableName)) {
+              List<TablePartitionProto> partitions = store.getPartitionsWithConditionFilters(databaseName,
+                tableName, request.getFilterList());
+
+              GetTablePartitionsProto.Builder builder = GetTablePartitionsProto.newBuilder();
+              builder.addAllPart(partitions);
+              return builder.build();
+            } else {
+              throw new NoPartitionedTableException(databaseName, tableName);
+            }
+          } else {
+            throw new NoSuchTableException(tableName);
+          }
+        } else {
+          throw new NoSuchDatabaseException(databaseName);
+        }
+      } catch (Exception e) {
+        LOG.error(e);
+        throw new ServiceException(e);
+      } finally {
+        rlock.unlock();
+      }
+    }
+
+    @Override
     public GetTablePartitionsProto getAllPartitions(RpcController controller, NullProto request) throws ServiceException {
       rlock.lock();
       try {
