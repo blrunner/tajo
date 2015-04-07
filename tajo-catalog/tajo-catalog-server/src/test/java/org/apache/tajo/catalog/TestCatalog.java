@@ -915,6 +915,15 @@ public class TestCatalog {
     assertNotNull(partitions);
     assertEquals(partitions.size(), 2);
 
+    List<String> filters = TUtil.newList();
+    filters.add("COLUMN_NAME = 'id' AND PARTITION_VALUE = '10'");
+    filters.add("COLUMN_NAME = 'name' AND PARTITION_VALUE = 'aaa'");
+    List<CatalogProtos.TablePartitionProto> partitionProtos = catalog.getPartitionsWithConditionFilters
+      (DEFAULT_DATABASE_NAME, "addedtable", filters);
+    assertNotNull(partitionProtos);
+    assertEquals(partitionProtos.size(), 1);
+    assertEquals(partitionProtos.get(0).getPath(), "hdfs://xxx.com/warehouse/id=10/name=aaa");
+
     testDropPartition(tableName, "id=10/name=aaa");
     testDropPartition(tableName, "id=20/name=bbb");
 
@@ -938,8 +947,8 @@ public class TestCatalog {
 
     List<PartitionKey> partitionKeyList = new ArrayList<PartitionKey>();
     for(int i = 0; i < partitionNames.length; i++) {
-      String columnName = partitionNames[i].split("=")[0];
-      partitionKeyList.add(new PartitionKey(partitionNames[i], columnName));
+      String[] eachPartitionKey = partitionNames[i].split("\\=");
+      partitionKeyList.add(new PartitionKey(eachPartitionKey[0], eachPartitionKey[1]));
     }
 
     partitionDesc.setPartitionKeys(partitionKeyList);
