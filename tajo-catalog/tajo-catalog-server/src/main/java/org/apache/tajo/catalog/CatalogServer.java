@@ -745,7 +745,7 @@ public class CatalogServer extends AbstractService {
       String tableName = request.getTableName();
 
       if (metaDictionary.isSystemDatabase(databaseName)) {
-        throw new ServiceException(databaseName + " is a system databsae. It does not contain any partitioned tables.");
+        throw new ServiceException(databaseName + " is a system database. It does not contain any partitioned tables.");
       }
       
       rlock.lock();
@@ -828,7 +828,7 @@ public class CatalogServer extends AbstractService {
       String partitionName = request.getPartitionName();
 
       if (metaDictionary.isSystemDatabase(databaseName)) {
-        throw new ServiceException(databaseName + " is a system databsae. It does not contain any partitioned tables.");
+        throw new ServiceException(databaseName + " is a system database. It does not contain any partitioned tables.");
       }
 
       rlock.lock();
@@ -870,7 +870,7 @@ public class CatalogServer extends AbstractService {
       String tableName = request.getTableName();
 
       if (metaDictionary.isSystemDatabase(databaseName)) {
-        throw new ServiceException(databaseName + " is a system databsae. It does not contain any partitioned tables.");
+        throw new ServiceException(databaseName + " is a system database. It does not contain any partitioned tables.");
       }
 
       rlock.lock();
@@ -912,7 +912,7 @@ public class CatalogServer extends AbstractService {
       String tableName = request.getTableName();
 
       if (metaDictionary.isSystemDatabase(databaseName)) {
-        throw new ServiceException(databaseName + " is a system databsae. It does not contain any partitioned tables.");
+        throw new ServiceException(databaseName + " is a system database. It does not contain any partitioned tables.");
       }
 
       rlock.lock();
