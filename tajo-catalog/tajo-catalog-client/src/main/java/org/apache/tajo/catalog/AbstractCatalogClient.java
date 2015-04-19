@@ -456,9 +456,9 @@ public abstract class AbstractCatalogClient implements CatalogService {
   }
 
   @Override
-  public List<TablePartitionProto> getPartitionsWithConditionFilters(final String databaseName,
+  public List<TablePartitionProto> getPartitionsByDirectSql(final String databaseName,
                                                                      final String tableName,
-                                                                     final List<String> filters) {
+                                                                     final String directSql) {
     try {
       return new ServerCallable<List<TablePartitionProto>>(pool, getCatalogServerAddr(), CatalogProtocol.class, false) {
 
@@ -467,10 +467,10 @@ public abstract class AbstractCatalogClient implements CatalogService {
           PartitionIdentifierProto.Builder builder = PartitionIdentifierProto.newBuilder();
           builder.setDatabaseName(databaseName);
           builder.setTableName(tableName);
-          builder.addAllFilter(filters);
+          builder.setDirectSql(directSql);
 
           CatalogProtocolService.BlockingInterface stub = getStub(client);
-          GetTablePartitionsProto response = stub.getPartitionsWithConditionFilters(null, builder.build());
+          GetTablePartitionsProto response = stub.getPartitionsByDirectSql(null, builder.build());
           return response.getPartList();
         }
       }.withRetries();

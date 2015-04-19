@@ -190,8 +190,8 @@ public interface CatalogService {
 
   List<CatalogProtos.PartitionDescProto> getPartitions(String databaseName, String tableName);
 
-  List<TablePartitionProto> getPartitionsWithConditionFilters(String databaseName, String tableName,
-                                                         List<String> filters) throws CatalogException;
+  List<TablePartitionProto> getPartitionsByDirectSql(String databaseName, String tableName,
+                                                         String directSql) throws CatalogException;
   List<TablePartitionProto> getAllPartitions();
 
   boolean createIndex(IndexDesc index);

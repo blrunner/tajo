@@ -906,7 +906,7 @@ public class CatalogServer extends AbstractService {
     }
 
     @Override
-    public GetTablePartitionsProto getPartitionsWithConditionFilters(RpcController controller, PartitionIdentifierProto request)
+    public GetTablePartitionsProto getPartitionsByDirectSql(RpcController controller, PartitionIdentifierProto request)
       throws ServiceException {
       String databaseName = request.getDatabaseName();
       String tableName = request.getTableName();
@@ -924,8 +924,8 @@ public class CatalogServer extends AbstractService {
           contain = store.existTable(databaseName, tableName);
           if (contain) {
             if (store.existPartitionMethod(databaseName, tableName)) {
-              List<TablePartitionProto> partitions = store.getPartitionsWithConditionFilters(databaseName,
-                tableName, request.getFilterList());
+              List<TablePartitionProto> partitions = store.getPartitionsByDirectSql(databaseName,
+                tableName, request.getDirectSql());
 
               GetTablePartitionsProto.Builder builder = GetTablePartitionsProto.newBuilder();
               builder.addAllPart(partitions);

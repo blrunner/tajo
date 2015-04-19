@@ -915,11 +915,11 @@ public class TestCatalog {
     assertNotNull(partitions);
     assertEquals(partitions.size(), 2);
 
-    List<String> filters = TUtil.newList();
-    filters.add("COLUMN_NAME = 'id' AND PARTITION_VALUE = '10'");
-    filters.add("COLUMN_NAME = 'name' AND PARTITION_VALUE = 'aaa'");
-    List<CatalogProtos.TablePartitionProto> partitionProtos = catalog.getPartitionsWithConditionFilters
-      (DEFAULT_DATABASE_NAME, "addedtable", filters);
+    StringBuilder sb = new StringBuilder();
+    sb.append("COLUMN_NAME = 'id' AND PARTITION_VALUE = '10'");
+    sb.append("\n OR COLUMN_NAME = 'name' AND PARTITION_VALUE = 'aaa'");
+    List<CatalogProtos.TablePartitionProto> partitionProtos = catalog.getPartitionsByDirectSql
+      (DEFAULT_DATABASE_NAME, "addedtable", sb.toString());
     assertNotNull(partitionProtos);
     assertEquals(partitionProtos.size(), 1);
     assertEquals(partitionProtos.get(0).getPath(), "hdfs://xxx.com/warehouse/id=10/name=aaa");

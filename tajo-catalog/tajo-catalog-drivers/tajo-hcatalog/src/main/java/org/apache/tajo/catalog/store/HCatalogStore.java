@@ -56,6 +56,7 @@ import org.apache.tajo.conf.TajoConf;
 import org.apache.tajo.exception.InternalException;
 import org.apache.tajo.storage.StorageConstants;
 import org.apache.tajo.util.KeyValueSet;
+import org.apache.tajo.util.TUtil;
 import org.apache.thrift.TException;
 
 import java.io.IOException;
@@ -803,8 +804,8 @@ public class HCatalogStore extends CatalogConstants implements CatalogStore {
 
 
   @Override
-  public List<TablePartitionProto> getPartitionsWithConditionFilters(String databaseName,
-                                                      String tableName, List<String> filters) throws CatalogException {
+  public List<TablePartitionProto> getPartitionsByDirectSql(String databaseName,
+                                                      String tableName, String directSql) throws CatalogException {
     throw new UnsupportedOperationException();
   }
 
@@ -832,6 +833,21 @@ public class HCatalogStore extends CatalogConstants implements CatalogStore {
         keyBuilder.setColumnName(columnName);
         keyBuilder.setPartitionValue(value);
         builder.addPartitionKeys(keyBuilder);
+      }
+
+      if (partitionName.equals("n_nationkey=10/n_date=20150102")) {
+        List<String> list = TUtil.newList();
+//      list.add(partitionName);
+        list.add("n_nationkey=10");
+        short max_parts = -1;
+        List<Partition> partitions = client.getHiveClient().listPartitionsByFilter(databaseName, tableName,
+          "n_nationkey=10", max_parts);
+//        List<Partition> partitions = client.getHiveClient().getPartitionsByNames(databaseName, tableName, list);
+        System.out.println("### tableName:" + tableName + ", partitionName:" + partitionName);
+        System.out.println("### partitionsSize:" + partitions.size());
+        for(Partition eachPartition : partitions) {
+          System.out.println("### eachPartition:" + eachPartition.toString());
+        }
       }
     } catch (NoSuchObjectException e) {
       return null;

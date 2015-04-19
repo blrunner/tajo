@@ -262,15 +262,15 @@ public class TestHCatalogStore {
     }
 
     testAddPartition(table1.getPath(), NATION, "n_nationkey=10/n_date=20150101");
-    testAddPartition(table1.getPath(), NATION, "n_nationkey=20/n_date=20150102");
+    testAddPartition(table1.getPath(), NATION, "n_nationkey=10/n_date=20150102");
 
     testDropPartition(NATION, "n_nationkey=10/n_date=20150101");
-    testDropPartition(NATION, "n_nationkey=20/n_date=20150102");
+    testDropPartition(NATION, "n_nationkey=10/n_date=20150102");
 
     CatalogProtos.PartitionDescProto partition = store.getPartition(DB_NAME, NATION, "n_nationkey=10/n_date=20150101");
     assertNull(partition);
 
-    partition = store.getPartition(DB_NAME, NATION, "n_nationkey=20/n_date=20150102");
+    partition = store.getPartition(DB_NAME, NATION, "n_nationkey=10/n_date=20150102");
     assertNull(partition);
 
     store.dropTable(DB_NAME, NATION);

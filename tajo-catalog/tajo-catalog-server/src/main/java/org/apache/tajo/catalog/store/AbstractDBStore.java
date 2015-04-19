@@ -2150,8 +2150,8 @@ public abstract class AbstractDBStore extends CatalogConstants implements Catalo
   }
 
   @Override
-  public List<TablePartitionProto> getPartitionsWithConditionFilters(String databaseName, String tableName,
-                                                                      List<String> filters) throws CatalogException {
+  public List<TablePartitionProto> getPartitionsByDirectSql(String databaseName, String tableName,
+                                                                      String directSql) throws CatalogException {
     Connection conn = null;
     PreparedStatement pstmt = null;
     ResultSet res = null;
@@ -2166,18 +2166,9 @@ public abstract class AbstractDBStore extends CatalogConstants implements Catalo
       sb.append("SELECT A." + COL_PARTITIONS_PK + ", MAX(A.PARTITION_NAME) AS PARTITION_NAME, MAX(A.PATH) AS PATH");
       sb.append("\n FROM PARTITIONS A, ( ");
       sb.append("\n   SELECT B.PARTITION_ID ");
-      sb.append("\n FROM PARTITION_KEYS B ");
-      sb.append("\n WHERE B.PARTITION_ID > 0 ");
-      sb.append("\n AND ( ");
-
-      for (int i = 0; i < filters.size(); i++) {
-        if (i > 0) {
-          sb.append("\n OR ");
-        }
-        sb.append(filters.get(i));
-      }
-
-      sb.append("\n ) ");
+      sb.append("\n   FROM PARTITION_KEYS B ");
+      sb.append("\n   WHERE B.PARTITION_ID > 0 ");
+      sb.append("\n   AND ( ").append(directSql).append(")");
       sb.append("\n ) B ");
       sb.append("\n WHERE A.PARTITION_ID > 0 ");
       sb.append("\n AND A.TID = ? ");
