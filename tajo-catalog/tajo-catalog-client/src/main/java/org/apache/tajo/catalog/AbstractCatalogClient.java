@@ -460,7 +460,8 @@ public abstract class AbstractCatalogClient implements CatalogService {
                                                                      final String tableName,
                                                                      final String directSql) {
     try {
-      return new ServerCallable<List<TablePartitionProto>>(pool, getCatalogServerAddr(), CatalogProtocol.class, false) {
+      return new ServerCallable<List<TablePartitionProto>>(this.manager, getCatalogServerAddr(),
+        CatalogProtocol.class, false) {
 
         @Override
         public List<TablePartitionProto> call(NettyClientBase client) throws Exception {

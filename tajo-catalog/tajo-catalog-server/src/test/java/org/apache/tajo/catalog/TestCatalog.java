@@ -909,7 +909,7 @@ public class TestCatalog {
     assertEquals(retrieved.getPartitionMethod().getExpressionSchema().getColumn(0).getSimpleName(), "id");
 
     testAddPartition(tableName, "id=10/name=aaa");
-    testAddPartition(tableName, "id=20/name=bbb");
+    testAddPartition(tableName, "id=10/name=bbb");
 
     List<CatalogProtos.PartitionDescProto> partitions = catalog.getPartitions(DEFAULT_DATABASE_NAME, "addedtable");
     assertNotNull(partitions);
@@ -921,11 +921,12 @@ public class TestCatalog {
     List<CatalogProtos.TablePartitionProto> partitionProtos = catalog.getPartitionsByDirectSql
       (DEFAULT_DATABASE_NAME, "addedtable", sb.toString());
     assertNotNull(partitionProtos);
-    assertEquals(partitionProtos.size(), 1);
+    assertEquals(partitionProtos.size(), 2);
     assertEquals(partitionProtos.get(0).getPath(), "hdfs://xxx.com/warehouse/id=10/name=aaa");
+    assertEquals(partitionProtos.get(1).getPath(), "hdfs://xxx.com/warehouse/id=10/name=bbb");
 
     testDropPartition(tableName, "id=10/name=aaa");
-    testDropPartition(tableName, "id=20/name=bbb");
+    testDropPartition(tableName, "id=10/name=bbb");
 
     partitions = catalog.getPartitions(DEFAULT_DATABASE_NAME, "addedtable");
     assertNotNull(partitions);
