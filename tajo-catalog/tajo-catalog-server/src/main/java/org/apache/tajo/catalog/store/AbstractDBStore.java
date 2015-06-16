@@ -2174,6 +2174,7 @@ public abstract class AbstractDBStore extends CatalogConstants implements Catalo
       sb.append("\n AND A.PARTITION_ID = B.PARTITION_ID ");
       sb.append("\n GROUP BY A." + COL_PARTITIONS_PK);
 
+      LOG.info("### Query:" + sb.toString());
       conn = getConnection();
       pstmt = conn.prepareStatement(sb.toString());
       pstmt.setInt(1, tableId);
