@@ -23,7 +23,6 @@ import org.apache.tajo.LocalTajoTestingUtility;
 import org.apache.tajo.TajoTestingCluster;
 import org.apache.tajo.algebra.Expr;
 import org.apache.tajo.catalog.*;
-import org.apache.tajo.catalog.proto.CatalogProtos.StoreType;
 import org.apache.tajo.common.TajoDataTypes.Type;
 import org.apache.tajo.conf.TajoConf;
 import org.apache.tajo.datum.Datum;
@@ -83,12 +82,12 @@ public class TestHashSemiJoinExec {
     employeeSchema.addColumn("memid", Type.INT4);
     employeeSchema.addColumn("deptname", Type.TEXT);
 
-    TableMeta employeeMeta = CatalogUtil.newTableMeta(StoreType.CSV);
+    TableMeta employeeMeta = CatalogUtil.newTableMeta("CSV");
     Path employeePath = new Path(testDir, "employee.csv");
-    Appender appender = ((FileStorageManager)StorageManager.getFileStorageManager(conf))
+    Appender appender = ((FileTablespace) TableSpaceManager.getFileStorageManager(conf))
         .getAppender(employeeMeta, employeeSchema, employeePath);
     appender.init();
-    Tuple tuple = new VTuple(employeeSchema.size());
+    VTuple tuple = new VTuple(employeeSchema.size());
 
     for (int i = 0; i < 10; i++) {
       tuple.put(new Datum[] {
@@ -109,9 +108,9 @@ public class TestHashSemiJoinExec {
     peopleSchema.addColumn("fk_memid", Type.INT4);
     peopleSchema.addColumn("name", Type.TEXT);
     peopleSchema.addColumn("age", Type.INT4);
-    TableMeta peopleMeta = CatalogUtil.newTableMeta(StoreType.CSV);
+    TableMeta peopleMeta = CatalogUtil.newTableMeta("CSV");
     Path peoplePath = new Path(testDir, "people.csv");
-    appender = ((FileStorageManager)StorageManager.getFileStorageManager(conf))
+    appender = ((FileTablespace) TableSpaceManager.getFileStorageManager(conf))
         .getAppender(peopleMeta, peopleSchema, peoplePath);
     appender.init();
     tuple = new VTuple(peopleSchema.size());
@@ -154,9 +153,9 @@ public class TestHashSemiJoinExec {
 
   @Test
   public final void testHashSemiJoin() throws IOException, PlanningException {
-    FileFragment[] empFrags = FileStorageManager.splitNG(conf, "default.e", employee.getMeta(),
+    FileFragment[] empFrags = FileTablespace.splitNG(conf, "default.e", employee.getMeta(),
         new Path(employee.getPath()), Integer.MAX_VALUE);
-    FileFragment[] peopleFrags = FileStorageManager.splitNG(conf, "default.p", people.getMeta(),
+    FileFragment[] peopleFrags = FileTablespace.splitNG(conf, "default.p", people.getMeta(),
         new Path(people.getPath()), Integer.MAX_VALUE);
 
     FileFragment[] merged = TUtil.concat(empFrags, peopleFrags);
@@ -206,10 +205,10 @@ public class TestHashSemiJoinExec {
     // expect result without duplicated tuples.
     while ((tuple = exec.next()) != null) {
       count++;
-      assertTrue(i == tuple.get(0).asInt4());
-      assertTrue(i == tuple.get(1).asInt4());
-      assertTrue(("dept_" + i).equals(tuple.get(2).asChars()));
-      assertTrue(10 + i == tuple.get(3).asInt4());
+      assertTrue(i == tuple.getInt4(0));
+      assertTrue(i == tuple.getInt4(1));
+      assertTrue(("dept_" + i).equals(tuple.getText(2)));
+      assertTrue(10 + i == tuple.getInt4(3));
 
       i += 2;
     }

@@ -71,7 +71,7 @@ public enum SessionVars implements ConfigKey {
   ON_ERROR_STOP(ConfVars.$CLI_ERROR_STOP, "tsql will exist if an error occurs.", CLI_SIDE_VAR),
 
   // Timezone & Date ----------------------------------------------------------
-  TIMEZONE(ConfVars.$TIMEZONE, "Sets timezone", CLI_SIDE_VAR),
+  TIMEZONE(ConfVars.$TIMEZONE, "Sets timezone", DEFAULT),
   DATE_ORDER(ConfVars.$DATE_ORDER, "date order (default is YMD)", CLI_SIDE_VAR),
 
   // Locales and Character set ------------------------------------------------
@@ -106,6 +106,9 @@ public enum SessionVars implements ConfigKey {
 
   GROUPBY_MULTI_LEVEL_ENABLED(ConfVars.$GROUPBY_MULTI_LEVEL_ENABLED, "Multiple level groupby enabled", DEFAULT,
       Boolean.class, Validators.bool()),
+
+  QUERY_EXECUTE_PARALLEL(ConfVars.$QUERY_EXECUTE_PARALLEL_MAX, "Maximum parallel running of execution blocks for a query",
+      DEFAULT, Integer.class, Validators.min("0")),
 
   // for physical Executors
   EXTSORT_BUFFER_SIZE(ConfVars.$EXECUTOR_EXTERNAL_SORT_BUFFER_SIZE, "sort buffer size for external sort (mb)", DEFAULT,

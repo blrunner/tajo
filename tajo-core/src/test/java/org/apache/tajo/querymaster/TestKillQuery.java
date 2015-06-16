@@ -19,6 +19,7 @@
 package org.apache.tajo.querymaster;
 
 import com.google.common.collect.Lists;
+import org.apache.hadoop.fs.LocalDirAllocator;
 import org.apache.hadoop.yarn.event.AsyncDispatcher;
 import org.apache.hadoop.yarn.event.Event;
 import org.apache.tajo.*;
@@ -33,19 +34,25 @@ import org.apache.tajo.engine.planner.global.GlobalPlanner;
 import org.apache.tajo.engine.planner.global.MasterPlan;
 import org.apache.tajo.engine.query.QueryContext;
 import org.apache.tajo.engine.query.TaskRequestImpl;
-import org.apache.tajo.ipc.ClientProtos;
-import org.apache.tajo.master.event.QueryEvent;
-import org.apache.tajo.master.event.QueryEventType;
-import org.apache.tajo.master.event.StageEvent;
-import org.apache.tajo.master.event.StageEventType;
+import org.apache.tajo.ipc.QueryCoordinatorProtocol;
+import org.apache.tajo.ipc.TajoWorkerProtocol;
+import org.apache.tajo.master.cluster.WorkerConnectionInfo;
+import org.apache.tajo.master.event.*;
 import org.apache.tajo.plan.LogicalOptimizer;
 import org.apache.tajo.plan.LogicalPlan;
 import org.apache.tajo.plan.LogicalPlanner;
 import org.apache.tajo.plan.serder.PlanProto;
+import org.apache.tajo.service.ServiceTracker;
 import org.apache.tajo.session.Session;
+import org.apache.tajo.storage.HashShuffleAppenderManager;
 import org.apache.tajo.util.CommonTestingUtil;
+import org.apache.tajo.util.history.HistoryReader;
+import org.apache.tajo.util.history.HistoryWriter;
+import org.apache.tajo.util.metrics.TajoSystemMetrics;
 import org.apache.tajo.worker.ExecutionBlockContext;
-import org.apache.tajo.worker.Task;
+import org.apache.tajo.worker.LegacyTaskImpl;
+import org.apache.tajo.worker.TajoWorker;
+import org.apache.tajo.worker.TaskRunnerManager;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -108,7 +115,7 @@ public class TestKillQuery {
     QueryContext queryContext = new QueryContext(conf);
     MasterPlan masterPlan = new MasterPlan(queryId, queryContext, plan);
     GlobalPlanner globalPlanner = new GlobalPlanner(conf, catalog);
-    globalPlanner.build(masterPlan);
+    globalPlanner.build(queryContext, masterPlan);
 
     CountDownLatch barrier  = new CountDownLatch(1);
     MockAsyncDispatch dispatch = new MockAsyncDispatch(barrier, StageEventType.SQ_INIT);
@@ -131,8 +138,7 @@ public class TestKillQuery {
     assertNotNull(stage);
 
     // fire kill event
-    Query q = queryMasterTask.getQuery();
-    q.handle(new QueryEvent(queryId, QueryEventType.KILL));
+    queryMasterTask.getEventHandler().handle(new QueryEvent(queryId, QueryEventType.KILL));
 
     try {
       cluster.waitForQueryState(queryMasterTask.getQuery(), TajoProtos.QueryState.QUERY_KILLED, 50);
@@ -157,24 +163,55 @@ public class TestKillQuery {
   @Test
   public final void testIgnoreStageStateFromKilled() throws Exception {
 
-    ClientProtos.SubmitQueryResponse res = client.executeQuery(queryStr);
-    QueryId queryId = new QueryId(res.getQueryId());
-    cluster.waitForQuerySubmitted(queryId);
+    SQLAnalyzer analyzer = new SQLAnalyzer();
+    QueryContext defaultContext = LocalTajoTestingUtility.createDummyContext(conf);
+    Session session = LocalTajoTestingUtility.createDummySession();
+    CatalogService catalog = cluster.getMaster().getCatalog();
 
-    QueryMasterTask qmt = cluster.getQueryMasterTask(queryId);
-    Query query = qmt.getQuery();
+    LogicalPlanner planner = new LogicalPlanner(catalog);
+    LogicalOptimizer optimizer = new LogicalOptimizer(conf);
+    Expr expr =  analyzer.parse(queryStr);
+    LogicalPlan plan = planner.createPlan(defaultContext, expr);
 
-    // wait for a stage created
-    cluster.waitForQueryState(query, TajoProtos.QueryState.QUERY_RUNNING, 10);
-    query.handle(new QueryEvent(queryId, QueryEventType.KILL));
+    optimizer.optimize(plan);
+
+    QueryId queryId = QueryIdFactory.newQueryId(System.currentTimeMillis(), 0);
+    QueryContext queryContext = new QueryContext(conf);
+    MasterPlan masterPlan = new MasterPlan(queryId, queryContext, plan);
+    GlobalPlanner globalPlanner = new GlobalPlanner(conf, catalog);
+    globalPlanner.build(queryContext, masterPlan);
+
+    CountDownLatch barrier  = new CountDownLatch(1);
+    MockAsyncDispatch dispatch = new MockAsyncDispatch(barrier, TajoProtos.QueryState.QUERY_RUNNING);
+
+    QueryMaster qm = cluster.getTajoWorkers().get(0).getWorkerContext().getQueryMaster();
+    QueryMasterTask queryMasterTask = new QueryMasterTask(qm.getContext(),
+        queryId, session, defaultContext, expr.toJson(), dispatch);
+
+    queryMasterTask.init(conf);
+    queryMasterTask.getQueryTaskContext().getDispatcher().start();
+    queryMasterTask.startQuery();
 
     try{
-      cluster.waitForQueryState(query, TajoProtos.QueryState.QUERY_KILLED, 50);
-    } finally {
-      assertEquals(TajoProtos.QueryState.QUERY_KILLED, query.getSynchronizedState());
+      barrier.await(5000, TimeUnit.MILLISECONDS);
+    } catch (InterruptedException e) {
+      fail("Query state : " + queryMasterTask.getQuery().getSynchronizedState());
     }
 
-    List<Stage> stages = Lists.newArrayList(query.getStages());
+    Stage stage = queryMasterTask.getQuery().getStages().iterator().next();
+    assertNotNull(stage);
+
+    // fire kill event
+    queryMasterTask.getEventHandler().handle(new QueryEvent(queryId, QueryEventType.KILL));
+
+    try {
+      cluster.waitForQueryState(queryMasterTask.getQuery(), TajoProtos.QueryState.QUERY_KILLED, 50);
+      assertEquals(TajoProtos.QueryState.QUERY_KILLED, queryMasterTask.getQuery().getSynchronizedState());
+    }   finally {
+      queryMasterTask.stop();
+    }
+
+    List<Stage> stages = Lists.newArrayList(queryMasterTask.getQuery().getStages());
     Stage lastStage = stages.get(stages.size() - 1);
 
     assertEquals(StageState.KILLED, lastStage.getSynchronizedState());
@@ -203,7 +240,7 @@ public class TestKillQuery {
     QueryId qid = LocalTajoTestingUtility.newQueryId();
     ExecutionBlockId eid = QueryIdFactory.newExecutionBlockId(qid, 1);
     TaskId tid = QueryIdFactory.newTaskId(eid);
-    TajoConf conf = new TajoConf();
+    final TajoConf conf = new TajoConf();
     TaskRequestImpl taskRequest = new TaskRequestImpl();
 
     taskRequest.set(null, new ArrayList<CatalogProtos.FragmentProto>(),
@@ -211,18 +248,37 @@ public class TestKillQuery {
     taskRequest.setInterQuery();
     TaskAttemptId attemptId = new TaskAttemptId(tid, 1);
 
-    ExecutionBlockContext context =
-        new ExecutionBlockContext(conf, null, null, new QueryContext(conf), null, eid, null, null);
+    WorkerConnectionInfo queryMaster = new WorkerConnectionInfo("host", 28091, 28092, 21000, 28093, 28080);
+    TajoWorkerProtocol.RunExecutionBlockRequestProto.Builder
+        requestProto = TajoWorkerProtocol.RunExecutionBlockRequestProto.newBuilder();
 
-    org.apache.tajo.worker.Task task = new Task("test", CommonTestingUtil.getTestDir(), attemptId,
+    requestProto.setExecutionBlockId(eid.getProto())
+        .setQueryMaster(queryMaster.getProto())
+        .setNodeId(queryMaster.getHost()+":" + queryMaster.getQueryMasterPort())
+        .setContainerId("test")
+        .setQueryContext(new QueryContext(conf).getProto())
+        .setPlanJson("test")
+        .setShuffleType(PlanProto.ShuffleType.HASH_SHUFFLE);
+
+    TajoWorker.WorkerContext workerContext = new MockWorkerContext() {
+      @Override
+      public TajoConf getConf() {
+        return conf;
+      }
+    };
+
+    ExecutionBlockContext context =
+        new ExecutionBlockContext(workerContext, null, requestProto.build());
+
+    org.apache.tajo.worker.Task task = new LegacyTaskImpl("test", CommonTestingUtil.getTestDir(), attemptId,
         conf, context, taskRequest);
     task.kill();
-    assertEquals(TajoProtos.TaskAttemptState.TA_KILLED, task.getStatus());
+    assertEquals(TajoProtos.TaskAttemptState.TA_KILLED, task.getTaskContext().getState());
     try {
       task.run();
-      assertEquals(TajoProtos.TaskAttemptState.TA_KILLED, task.getStatus());
+      assertEquals(TajoProtos.TaskAttemptState.TA_KILLED, task.getTaskContext().getState());
     } catch (Exception e) {
-      assertEquals(TajoProtos.TaskAttemptState.TA_KILLED, task.getStatus());
+      assertEquals(TajoProtos.TaskAttemptState.TA_KILLED, task.getTaskContext().getState());
     }
   }
 
@@ -242,6 +298,96 @@ public class TestKillQuery {
         latch.countDown();
       }
       super.dispatch(event);
+    }
+  }
+
+  abstract class MockWorkerContext implements TajoWorker.WorkerContext {
+
+    @Override
+    public QueryMaster getQueryMaster() {
+      return null;
+    }
+
+    public abstract TajoConf getConf();
+
+    @Override
+    public ServiceTracker getServiceTracker() {
+      return null;
+    }
+
+    @Override
+    public QueryMasterManagerService getQueryMasterManagerService() {
+      return null;
+    }
+
+    @Override
+    public TaskRunnerManager getTaskRunnerManager() {
+      return null;
+    }
+
+    @Override
+    public CatalogService getCatalog() {
+      return null;
+    }
+
+    @Override
+    public WorkerConnectionInfo getConnectionInfo() {
+      return null;
+    }
+
+    @Override
+    public String getWorkerName() {
+      return null;
+    }
+
+    @Override
+    public LocalDirAllocator getLocalDirAllocator() {
+      return null;
+    }
+
+    @Override
+    public QueryCoordinatorProtocol.ClusterResourceSummary getClusterResource() {
+      return null;
+    }
+
+    @Override
+    public TajoSystemMetrics getWorkerSystemMetrics() {
+      return null;
+    }
+
+    @Override
+    public HashShuffleAppenderManager getHashShuffleAppenderManager() {
+      return null;
+    }
+
+    @Override
+    public HistoryWriter getTaskHistoryWriter() {
+      return null;
+    }
+
+    @Override
+    public HistoryReader getHistoryReader() {
+      return null;
+    }
+
+    @Override
+    public void cleanup(String strPath) {
+
+    }
+
+    @Override
+    public void cleanupTemporalDirectories() {
+
+    }
+
+    @Override
+    public void setClusterResource(QueryCoordinatorProtocol.ClusterResourceSummary clusterResource) {
+
+    }
+
+    @Override
+    public void setNumClusterNodes(int numClusterNodes) {
+
     }
   }
 }

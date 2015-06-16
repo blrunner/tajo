@@ -44,6 +44,8 @@ import org.apache.tajo.master.rm.WorkerResourceManager;
 import org.apache.tajo.metrics.CatalogMetricsGaugeSet;
 import org.apache.tajo.metrics.WorkerResourceMetricsGaugeSet;
 import org.apache.tajo.rpc.RpcChannelFactory;
+import org.apache.tajo.rpc.RpcClientManager;
+import org.apache.tajo.rpc.RpcConstants;
 import org.apache.tajo.rule.EvaluationContext;
 import org.apache.tajo.rule.EvaluationFailedException;
 import org.apache.tajo.rule.SelfDiagnosisRuleEngine;
@@ -51,7 +53,8 @@ import org.apache.tajo.rule.SelfDiagnosisRuleSession;
 import org.apache.tajo.service.ServiceTracker;
 import org.apache.tajo.service.ServiceTrackerFactory;
 import org.apache.tajo.session.SessionManager;
-import org.apache.tajo.storage.StorageManager;
+import org.apache.tajo.storage.Tablespace;
+import org.apache.tajo.storage.TableSpaceManager;
 import org.apache.tajo.util.*;
 import org.apache.tajo.util.history.HistoryReader;
 import org.apache.tajo.util.history.HistoryWriter;
@@ -111,7 +114,7 @@ public class TajoMaster extends CompositeService {
 
   private CatalogServer catalogServer;
   private CatalogService catalog;
-  private StorageManager storeManager;
+  private Tablespace storeManager;
   private GlobalEngine globalEngine;
   private AsyncDispatcher dispatcher;
   private TajoMasterClientService tajoMasterClientService;
@@ -167,8 +170,12 @@ public class TajoMaster extends CompositeService {
     try {
       RackResolver.init(systemConf);
 
+      RpcClientManager rpcManager = RpcClientManager.getInstance();
+      rpcManager.setRetries(systemConf.getInt(RpcConstants.RPC_CLIENT_RETRY_MAX, RpcConstants.DEFAULT_RPC_RETRIES));
+      rpcManager.setTimeoutSeconds(
+          systemConf.getInt(RpcConstants.RPC_CLIENT_TIMEOUT_SECS, RpcConstants.DEFAULT_RPC_TIMEOUT_SECONDS));
+
       initResourceManager();
-      initWebServer();
 
       this.dispatcher = new AsyncDispatcher();
       addIfService(dispatcher);
@@ -176,7 +183,7 @@ public class TajoMaster extends CompositeService {
       // check the system directory and create if they are not created.
       checkAndInitializeSystemDirectories();
       diagnoseTajoMaster();
-      this.storeManager = StorageManager.getFileStorageManager(systemConf);
+      this.storeManager = TableSpaceManager.getFileStorageManager(systemConf);
 
       catalogServer = new CatalogServer(loadFunctions());
       addIfService(catalogServer);
@@ -238,11 +245,6 @@ public class TajoMaster extends CompositeService {
       webServer.start();
     }
   }
-
-  public boolean isActiveMaster() {
-    return (haService != null ? haService.isActiveStatus() : true);
-  }
-
 
   private void checkAndInitializeSystemDirectories() throws IOException {
     // Get Tajo root dir
@@ -328,6 +330,7 @@ public class TajoMaster extends CompositeService {
       LOG.error(e.getMessage(), e);
     }
 
+    initWebServer();
     initSystemMetrics();
 
     haService = ServiceTrackerFactory.get(systemConf);
@@ -353,14 +356,18 @@ public class TajoMaster extends CompositeService {
       defaultFS.delete(systemConfPath, false);
     }
 
-    FSDataOutputStream out = FileSystem.create(defaultFS, systemConfPath,
+    // In TajoMaster HA, some master might see LeaseExpiredException because of lease mismatch. Thus,
+    // we need to create below xml file at HdfsServiceTracker::writeSystemConf.
+    if (!systemConf.getBoolVar(TajoConf.ConfVars.TAJO_MASTER_HA_ENABLE)) {
+      FSDataOutputStream out = FileSystem.create(defaultFS, systemConfPath,
         new FsPermission(SYSTEM_CONF_FILE_PERMISSION));
-    try {
-      systemConf.writeXml(out);
-    } finally {
-      out.close();
+      try {
+        systemConf.writeXml(out);
+      } finally {
+        out.close();
+      }
+      defaultFS.setReplication(systemConfPath, (short) systemConf.getIntVar(ConfVars.SYSTEM_CONF_REPLICA_COUNT));
     }
-    defaultFS.setReplication(systemConfPath, (short) systemConf.getIntVar(ConfVars.SYSTEM_CONF_REPLICA_COUNT));
   }
 
   private void checkBaseTBSpaceAndDatabase() throws IOException {
@@ -470,7 +477,7 @@ public class TajoMaster extends CompositeService {
       return globalEngine;
     }
 
-    public StorageManager getStorageManager() {
+    public Tablespace getStorageManager() {
       return storeManager;
     }
 

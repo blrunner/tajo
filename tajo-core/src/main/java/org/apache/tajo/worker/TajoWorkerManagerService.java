@@ -116,17 +116,11 @@ public class TajoWorkerManagerService extends CompositeService
     workerContext.getWorkerSystemMetrics().counter("query", "executedExecutionBlocksNum").inc();
 
     try {
-      workerContext.getTaskRunnerManager().getEventHandler().handle(new TaskRunnerStartEvent(
-          new WorkerConnectionInfo(request.getQueryMaster())
-          , new ExecutionBlockId(request.getExecutionBlockId())
-          , request.getContainerId()
-          , new QueryContext(workerContext.getConf(), request.getQueryContext()),
-          request.getPlanJson(),
-          request.getShuffleType()
-      ));
+      workerContext.getTaskRunnerManager().getEventHandler().handle(new TaskRunnerStartEvent(request));
       done.run(TajoWorker.TRUE_PROTO);
     } catch (Throwable t) {
       LOG.error(t.getMessage(), t);
+      controller.setFailed(t.getMessage());
       done.run(TajoWorker.FALSE_PROTO);
     }
   }
@@ -142,6 +136,7 @@ public class TajoWorkerManagerService extends CompositeService
       done.run(TajoWorker.TRUE_PROTO);
     } catch (Exception e) {
       LOG.error(e.getMessage(), e);
+      controller.setFailed(e.getMessage());
       done.run(TajoWorker.FALSE_PROTO);
     }
   }

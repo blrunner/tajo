@@ -81,8 +81,8 @@ public class TestEvalTreeUtil {
 
     @Override
     public Datum eval(Tuple params) {
-      x =  params.get(0).asInt4();
-      y =  params.get(1).asInt4();
+      x =  params.getInt4(0);
+      y =  params.getInt4(1);
       return DatumFactory.createInt4(x + y);
     }
   }
@@ -103,7 +103,7 @@ public class TestEvalTreeUtil {
     schema.addColumn("score", TajoDataTypes.Type.INT4);
     schema.addColumn("age", TajoDataTypes.Type.INT4);
 
-    TableMeta meta = CatalogUtil.newTableMeta(StoreType.CSV);
+    TableMeta meta = CatalogUtil.newTableMeta("CSV");
     TableDesc desc = new TableDesc(
         CatalogUtil.buildFQName(TajoConstants.DEFAULT_DATABASE_NAME, "people"), schema, meta,
         CommonTestingUtil.getTestDir().toUri());

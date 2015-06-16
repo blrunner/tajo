@@ -20,10 +20,12 @@ package org.apache.tajo.master.rm;
 
 import com.google.protobuf.RpcCallback;
 import com.google.protobuf.RpcController;
+import com.google.protobuf.ServiceException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.service.AbstractService;
+import org.apache.tajo.common.exception.NotImplementedException;
 import org.apache.tajo.conf.TajoConf;
 import org.apache.tajo.ipc.QueryCoordinatorProtocol.TajoHeartbeatResponse;
 import org.apache.tajo.ipc.TajoResourceTrackerProtocol;
@@ -76,7 +78,7 @@ public class TajoResourceTracker extends AbstractService implements TajoResource
   }
 
   @Override
-  public void serviceInit(Configuration conf) {
+  public void serviceInit(Configuration conf) throws Exception {
     if (!(conf instanceof TajoConf)) {
       throw new IllegalArgumentException("Configuration must be a TajoConf instance");
     }
@@ -98,17 +100,17 @@ public class TajoResourceTracker extends AbstractService implements TajoResource
     systemConf.setVar(TajoConf.ConfVars.RESOURCE_TRACKER_RPC_ADDRESS, NetUtils.normalizeInetSocketAddress(bindAddress));
 
     LOG.info("TajoResourceTracker starts up (" + this.bindAddress + ")");
-    super.start();
+    super.serviceInit(conf);
   }
 
   @Override
-  public void serviceStop() {
+  public void serviceStop() throws Exception {
     // server can be null if some exception occurs before the rpc server starts up.
     if(server != null) {
       server.shutdown();
       server = null;
     }
-    super.stop();
+    super.serviceStop();
   }
 
   /** The response builder */
@@ -180,6 +182,15 @@ public class TajoResourceTracker extends AbstractService implements TajoResource
       builder.setClusterResourceSummary(manager.getClusterResourceSummary());
       done.run(builder.build());
     }
+  }
+
+  @Override
+  public void nodeHeartbeat(RpcController controller, TajoResourceTrackerProtocol.NodeHeartbeatRequestProto request,
+                            RpcCallback<TajoResourceTrackerProtocol.NodeHeartbeatResponseProto> done) {
+    //TODO implement with ResourceManager for scheduler
+    TajoResourceTrackerProtocol.NodeHeartbeatResponseProto.Builder
+        response = TajoResourceTrackerProtocol.NodeHeartbeatResponseProto.newBuilder();
+    done.run(response.setCommand(TajoResourceTrackerProtocol.ResponseCommand.NORMAL).build());
   }
 
   private Worker createWorkerResource(NodeHeartbeat request) {

@@ -25,7 +25,6 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RawLocalFileSystem;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.tajo.catalog.*;
-import org.apache.tajo.catalog.proto.CatalogProtos;
 import org.apache.tajo.conf.TajoConf;
 import org.apache.tajo.plan.util.PlannerUtil;
 import org.apache.tajo.storage.*;
@@ -75,10 +74,10 @@ public class RangeShuffleFileWriteExec extends UnaryPhysicalExec {
     Path storeTablePath = new Path(context.getWorkDir(), "output");
     LOG.info("Output data directory: " + storeTablePath);
     this.meta = CatalogUtil.newTableMeta(context.getDataChannel() != null ?
-        context.getDataChannel().getStoreType() : CatalogProtos.StoreType.RAW);
+        context.getDataChannel().getStoreType() : "RAW");
     FileSystem fs = new RawLocalFileSystem();
     fs.mkdirs(storeTablePath);
-    this.appender = (FileAppender) ((FileStorageManager)StorageManager.getFileStorageManager(context.getConf()))
+    this.appender = (FileAppender) ((FileTablespace) TableSpaceManager.getFileStorageManager(context.getConf()))
         .getAppender(meta, outSchema, new Path(storeTablePath, "output"));
     this.appender.enableStats();
     this.appender.init();
@@ -96,15 +95,20 @@ public class RangeShuffleFileWriteExec extends UnaryPhysicalExec {
     long offset;
 
 
-    while(!context.isStopped() && (tuple = child.next()) != null) {
-      offset = appender.getOffset();
-      appender.addTuple(tuple);
-      keyTuple = new VTuple(keySchema.size());
-      RowStoreUtil.project(tuple, keyTuple, indexKeys);
-      if (prevKeyTuple == null || !prevKeyTuple.equals(keyTuple)) {
-        indexWriter.write(keyTuple, offset);
-        prevKeyTuple = keyTuple;
+    try {
+      while(!context.isStopped() && (tuple = child.next()) != null) {
+        offset = appender.getOffset();
+        appender.addTuple(tuple);
+        keyTuple = new VTuple(keySchema.size());
+        RowStoreUtil.project(tuple, keyTuple, indexKeys);
+        if (prevKeyTuple == null || !prevKeyTuple.equals(keyTuple)) {
+          indexWriter.write(keyTuple, offset);
+          prevKeyTuple = keyTuple;
+        }
       }
+    } catch (RuntimeException e) {
+      e.printStackTrace();
+      throw e;
     }
 
     return null;
