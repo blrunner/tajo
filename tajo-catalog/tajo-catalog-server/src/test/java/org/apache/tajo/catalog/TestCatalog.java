@@ -918,10 +918,9 @@ public class TestCatalog {
     assertEquals(partitions.size(), 4);
 
     StringBuilder sb = new StringBuilder();
-    sb.append("COLUMN_NAME = 'id' AND PARTITION_VALUE = '10'");
-    sb.append("\n OR COLUMN_NAME = 'name' AND PARTITION_VALUE = 'aaa'");
-    sb.append("\n OR COLUMN_NAME = 'id' AND PARTITION_VALUE = '10' AND COLUMN_NAME = 'name' AND PARTITION_VALUE = " +
-      "'aaa'");
+    sb.append(" ( COLUMN_NAME = 'id' AND PARTITION_VALUE = '10') ");
+    sb.append("\n OR (COLUMN_NAME = 'id' AND PARTITION_VALUE = '10'");
+    sb.append(" AND COLUMN_NAME = 'name' AND PARTITION_VALUE IS NOT NULL)");
     List<CatalogProtos.TablePartitionProto> partitionProtos = catalog.getPartitionsByDirectSql
       (DEFAULT_DATABASE_NAME, "addedtable", sb.toString());
 
@@ -930,16 +929,6 @@ public class TestCatalog {
     assertEquals(partitionProtos.get(0).getPath(), "hdfs://xxx.com/warehouse/id=10/name=aaa");
     assertEquals(partitionProtos.get(1).getPath(), "hdfs://xxx.com/warehouse/id=10/name=bbb");
 
-//    sb.delete(0, sb.length());
-//    sb.append("COLUMN_NAME = 'id' AND PARTITION_VALUE = '20'");
-//    sb.append("\n OR COLUMN_NAME = 'name' AND PARTITION_VALUE = 'aaa'");
-//    partitionProtos = catalog.getPartitionsByDirectSql
-//      (DEFAULT_DATABASE_NAME, "addedtable", sb.toString());
-//
-//    assertNotNull(partitionProtos);
-//    assertEquals(partitionProtos.size(), 1);
-//    assertEquals(partitionProtos.get(0).getPath(), "hdfs://xxx.com/warehouse/id=20/name=aaa");
-//
     testDropPartition(tableName, "id=10/name=aaa");
     testDropPartition(tableName, "id=10/name=bbb");
     testDropPartition(tableName, "id=20/name=ccc");

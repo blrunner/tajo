@@ -336,21 +336,14 @@ public abstract class AbstractCatalogClient implements CatalogService, Closeable
                                                                      final String tableName,
                                                                      final String directSql) {
     try {
-      return new ServerCallable<List<TablePartitionProto>>(this.manager, getCatalogServerAddr(),
-        CatalogProtocol.class, false) {
+        PartitionIdentifierProto.Builder builder = PartitionIdentifierProto.newBuilder();
+        builder.setDatabaseName(databaseName);
+        builder.setTableName(tableName);
+        builder.setDirectSql(directSql);
 
-        @Override
-        public List<TablePartitionProto> call(NettyClientBase client) throws Exception {
-          PartitionIdentifierProto.Builder builder = PartitionIdentifierProto.newBuilder();
-          builder.setDatabaseName(databaseName);
-          builder.setTableName(tableName);
-          builder.setDirectSql(directSql);
-
-          CatalogProtocolService.BlockingInterface stub = getStub(client);
-          GetTablePartitionsProto response = stub.getPartitionsByDirectSql(null, builder.build());
-          return response.getPartList();
-        }
-      }.withRetries();
+        CatalogProtocolService.BlockingInterface stub = getStub();
+        GetTablePartitionsProto response = stub.getPartitionsByDirectSql(null, builder.build());
+        return response.getPartList();
     } catch (ServiceException e) {
       LOG.error(e.getMessage(), e);
       return null;

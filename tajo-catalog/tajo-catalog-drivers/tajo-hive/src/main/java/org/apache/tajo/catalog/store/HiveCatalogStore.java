@@ -821,21 +821,6 @@ public class HiveCatalogStore extends CatalogConstants implements CatalogStore {
         keyBuilder.setPartitionValue(value);
         builder.addPartitionKeys(keyBuilder);
       }
-
-      if (partitionName.equals("n_nationkey=10/n_date=20150102")) {
-        List<String> list = TUtil.newList();
-//      list.add(partitionName);
-        list.add("n_nationkey=10");
-        short max_parts = -1;
-        List<Partition> partitions = client.getHiveClient().listPartitionsByFilter(databaseName, tableName,
-          "n_nationkey=10", max_parts);
-//        List<Partition> partitions = client.getHiveClient().getPartitionsByNames(databaseName, tableName, list);
-        System.out.println("### tableName:" + tableName + ", partitionName:" + partitionName);
-        System.out.println("### partitionsSize:" + partitions.size());
-        for(Partition eachPartition : partitions) {
-          System.out.println("### eachPartition:" + eachPartition.toString());
-        }
-      }
     } catch (NoSuchObjectException e) {
       return null;
     } catch (Exception e) {
