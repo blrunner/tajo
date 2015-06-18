@@ -302,9 +302,9 @@ public class TajoTestingCluster {
 
     conf.set(CatalogConstants.STORE_CLASS, "org.apache.tajo.catalog.store.DerbyStore");
 //    conf.set(CatalogConstants.CATALOG_URI, "jdbc:derby:" + clusterTestBuildDir.getAbsolutePath()+ "/db;create=true");
-//    conf.set(CatalogConstants.CATALOG_URI, "jdbc:derby:;databaseName=" + clusterTestBuildDir.getAbsolutePath()+ "/db;" +
-//      "create=true");
-    conf.set(CatalogConstants.CATALOG_URI, "jdbc:derby:memory:testdb;create=true;create=true");
+    conf.set(CatalogConstants.CATALOG_URI, "jdbc:derby:;databaseName=" + clusterTestBuildDir.getAbsolutePath()+ "/db;" +
+      "create=true");
+//    conf.set(CatalogConstants.CATALOG_URI, "jdbc:derby:memory:testdb;create=true;create=true");
     LOG.info("Apache Derby repository is set to " + conf.get(CatalogConstants.CATALOG_URI));
     conf.setVar(ConfVars.CATALOG_ADDRESS, "localhost:0");
 
@@ -346,9 +346,9 @@ public class TajoTestingCluster {
     c.setIntVar(ConfVars.REST_SERVICE_PORT, 0);
 
 //    c.set(CatalogConstants.CATALOG_URI, "jdbc:derby:" + testBuildDir.getAbsolutePath() + "/db;create=true");
-//    c.set(CatalogConstants.CATALOG_URI, "jdbc:derby:;databaseName=" + testBuildDir.getAbsolutePath() + "/db;" +
-//      "create=true");
-    c.set(CatalogConstants.CATALOG_URI, "jdbc:derby:memory:testdb;create=true");
+    c.set(CatalogConstants.CATALOG_URI, "jdbc:derby:;databaseName=" + testBuildDir.getAbsolutePath() + "/db;" +
+      "create=true");
+//    c.set(CatalogConstants.CATALOG_URI, "jdbc:derby:memory:testdb;create=true");
     LOG.info("derby repository is set to "+conf.get(CatalogConstants.CATALOG_URI));
 
     if (!local) {
@@ -424,9 +424,9 @@ public class TajoTestingCluster {
       }
     } else { // for derby
       c.set(CatalogConstants.STORE_CLASS, "org.apache.tajo.catalog.store.DerbyStore");
-//      c.set(CatalogConstants.CATALOG_URI, "jdbc:derby:;databaseName=" + testBuildDir.getAbsolutePath() + "/db;" +
-//        "create=true");
-      c.set(CatalogConstants.CATALOG_URI, "jdbc:derby:memory:testdb;create=true");
+      c.set(CatalogConstants.CATALOG_URI, "jdbc:derby:;databaseName=" + testBuildDir.getAbsolutePath() + "/db;" +
+        "create=true");
+//      c.set(CatalogConstants.CATALOG_URI, "jdbc:derby:memory:testdb;create=true");
     }
     c.setVar(ConfVars.CATALOG_ADDRESS, "localhost:0");
   }
