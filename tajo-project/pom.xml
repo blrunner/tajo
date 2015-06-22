@@ -358,6 +358,15 @@
         <enabled>false</enabled>
       </snapshots>
     </repository>
+
+    <!-- note the following -->
+    <repository>
+      <id>cloudera</id>
+      <url>https://repository.cloudera.com/artifactory/cloudera-repos/</url>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+    </repository>
   </repositories>
 
   <build>
