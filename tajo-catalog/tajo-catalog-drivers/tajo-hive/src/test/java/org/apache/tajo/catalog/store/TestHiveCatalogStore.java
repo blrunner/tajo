@@ -43,7 +43,6 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.apache.tajo.TajoConstants.DEFAULT_DATABASE_NAME;
 import static org.junit.Assert.*;
 
 /**
@@ -99,20 +98,20 @@ public class TestHiveCatalogStore {
     schema.addColumn("c_comment", TajoDataTypes.Type.TEXT);
 
     TableDesc table = new TableDesc(CatalogUtil.buildFQName(DB_NAME, CUSTOMER), schema, meta,
-        new Path(warehousePath, new Path(DB_NAME, CUSTOMER)).toUri());
+      new Path(warehousePath, new Path(DB_NAME, CUSTOMER)).toUri());
     store.createTable(table.getProto());
     assertTrue(store.existTable(DB_NAME, CUSTOMER));
 
     TableDesc table1 = new TableDesc(store.getTable(DB_NAME, CUSTOMER));
     assertEquals(table.getName(), table1.getName());
-    assertEquals(table.getPath(), table1.getPath());
+    assertEquals(table.getUri(), table1.getUri());
     assertEquals(table.getSchema().size(), table1.getSchema().size());
     for (int i = 0; i < table.getSchema().size(); i++) {
       assertEquals(table.getSchema().getColumn(i).getSimpleName(), table1.getSchema().getColumn(i).getSimpleName());
     }
 
     assertEquals(StringEscapeUtils.escapeJava(StorageConstants.DEFAULT_FIELD_DELIMITER),
-        table1.getMeta().getOption(StorageConstants.TEXT_DELIMITER));
+      table1.getMeta().getOption(StorageConstants.TEXT_DELIMITER));
     store.dropTable(DB_NAME, CUSTOMER);
   }
 
@@ -128,20 +127,20 @@ public class TestHiveCatalogStore {
     schema.addColumn("r_comment", TajoDataTypes.Type.TEXT);
 
     TableDesc table = new TableDesc(CatalogUtil.buildFQName(DB_NAME, REGION), schema, meta,
-        new Path(warehousePath, new Path(DB_NAME, REGION)).toUri());
+      new Path(warehousePath, new Path(DB_NAME, REGION)).toUri());
     store.createTable(table.getProto());
     assertTrue(store.existTable(DB_NAME, REGION));
 
     TableDesc table1 = new TableDesc(store.getTable(DB_NAME, REGION));
     assertEquals(table.getName(), table1.getName());
-    assertEquals(table.getPath(), table1.getPath());
+    assertEquals(table.getUri(), table1.getUri());
     assertEquals(table.getSchema().size(), table1.getSchema().size());
     for (int i = 0; i < table.getSchema().size(); i++) {
       assertEquals(table.getSchema().getColumn(i).getSimpleName(), table1.getSchema().getColumn(i).getSimpleName());
     }
 
     assertEquals(StorageConstants.DEFAULT_BINARY_SERDE,
-        table1.getMeta().getOption(StorageConstants.RCFILE_SERDE));
+      table1.getMeta().getOption(StorageConstants.RCFILE_SERDE));
     store.dropTable(DB_NAME, REGION);
   }
 
@@ -157,13 +156,13 @@ public class TestHiveCatalogStore {
     schema.addColumn("r_comment", TajoDataTypes.Type.TEXT);
 
     TableDesc table = new TableDesc(CatalogUtil.buildFQName(DB_NAME, REGION), schema, meta,
-        new Path(warehousePath, new Path(DB_NAME, REGION)).toUri());
+      new Path(warehousePath, new Path(DB_NAME, REGION)).toUri());
     store.createTable(table.getProto());
     assertTrue(store.existTable(DB_NAME, REGION));
 
     TableDesc table1 = new TableDesc(store.getTable(DB_NAME, REGION));
     assertEquals(table.getName(), table1.getName());
-    assertEquals(table.getPath(), table1.getPath());
+    assertEquals(table.getUri(), table1.getUri());
     assertEquals(table.getSchema().size(), table1.getSchema().size());
     for (int i = 0; i < table.getSchema().size(); i++) {
       assertEquals(table.getSchema().getColumn(i).getSimpleName(), table1.getSchema().getColumn(i).getSimpleName());
@@ -190,30 +189,30 @@ public class TestHiveCatalogStore {
     schema.addColumn("s_comment", TajoDataTypes.Type.TEXT);
 
     TableDesc table = new TableDesc(CatalogUtil.buildFQName(DB_NAME, SUPPLIER), schema, meta,
-        new Path(warehousePath, new Path(DB_NAME, SUPPLIER)).toUri());
+      new Path(warehousePath, new Path(DB_NAME, SUPPLIER)).toUri());
 
     store.createTable(table.getProto());
     assertTrue(store.existTable(DB_NAME, SUPPLIER));
 
     TableDesc table1 = new TableDesc(store.getTable(DB_NAME, SUPPLIER));
     assertEquals(table.getName(), table1.getName());
-    assertEquals(table.getPath(), table1.getPath());
+    assertEquals(table.getUri(), table1.getUri());
     assertEquals(table.getSchema().size(), table1.getSchema().size());
     for (int i = 0; i < table.getSchema().size(); i++) {
       assertEquals(table.getSchema().getColumn(i).getSimpleName(), table1.getSchema().getColumn(i).getSimpleName());
     }
 
     assertEquals(table.getMeta().getOption(StorageConstants.TEXT_DELIMITER),
-        table1.getMeta().getOption(StorageConstants.TEXT_DELIMITER));
+      table1.getMeta().getOption(StorageConstants.TEXT_DELIMITER));
 
     assertEquals(table.getMeta().getOption(StorageConstants.TEXT_NULL),
-        table1.getMeta().getOption(StorageConstants.TEXT_NULL));
+      table1.getMeta().getOption(StorageConstants.TEXT_NULL));
 
     assertEquals(table1.getMeta().getOption(StorageConstants.TEXT_DELIMITER),
-        StringEscapeUtils.escapeJava("\u0002"));
+      StringEscapeUtils.escapeJava("\u0002"));
 
     assertEquals(table1.getMeta().getOption(StorageConstants.TEXT_NULL),
-        StringEscapeUtils.escapeJava("\u0003"));
+      StringEscapeUtils.escapeJava("\u0003"));
 
     store.dropTable(DB_NAME, SUPPLIER);
 
@@ -230,16 +229,16 @@ public class TestHiveCatalogStore {
 
 
     TableDesc table = new TableDesc(CatalogUtil.buildFQName(DB_NAME, NATION), schema, meta,
-        new Path(warehousePath, new Path(DB_NAME, NATION)).toUri());
+      new Path(warehousePath, new Path(DB_NAME, NATION)).toUri());
 
     org.apache.tajo.catalog.Schema expressionSchema = new org.apache.tajo.catalog.Schema();
     expressionSchema.addColumn("n_nationkey", TajoDataTypes.Type.INT4);
     expressionSchema.addColumn("n_date", TajoDataTypes.Type.TEXT);
 
     PartitionMethodDesc partitions = new PartitionMethodDesc(
-        DB_NAME,
-        NATION,
-        CatalogProtos.PartitionType.COLUMN, "n_nationkey,n_date", expressionSchema);
+      DB_NAME,
+      NATION,
+      CatalogProtos.PartitionType.COLUMN, "n_nationkey,n_date", expressionSchema);
     table.setPartitionMethod(partitions);
 
     store.createTable(table.getProto());
@@ -247,7 +246,7 @@ public class TestHiveCatalogStore {
 
     TableDesc table1 = new TableDesc(store.getTable(DB_NAME, NATION));
     assertEquals(table.getName(), table1.getName());
-    assertEquals(table.getPath(), table1.getPath());
+    assertEquals(table.getUri(), table1.getUri());
     assertEquals(table.getSchema().size(), table1.getSchema().size());
     for (int i = 0; i < table.getSchema().size(); i++) {
       assertEquals(table.getSchema().getColumn(i).getSimpleName(), table1.getSchema().getColumn(i).getSimpleName());
@@ -261,16 +260,16 @@ public class TestHiveCatalogStore {
       assertEquals(partitionSchema.getColumn(i).getSimpleName(), partitionSchema1.getColumn(i).getSimpleName());
     }
 
-    testAddPartition(table1.getPath(), NATION, "n_nationkey=10/n_date=20150101");
-    testAddPartition(table1.getPath(), NATION, "n_nationkey=10/n_date=20150102");
+    testAddPartition(table1.getUri(), NATION, "n_nationkey=10/n_date=20150101");
+    testAddPartition(table1.getUri(), NATION, "n_nationkey=20/n_date=20150102");
 
     testDropPartition(NATION, "n_nationkey=10/n_date=20150101");
-    testDropPartition(NATION, "n_nationkey=10/n_date=20150102");
+    testDropPartition(NATION, "n_nationkey=20/n_date=20150102");
 
     CatalogProtos.PartitionDescProto partition = store.getPartition(DB_NAME, NATION, "n_nationkey=10/n_date=20150101");
     assertNull(partition);
 
-    partition = store.getPartition(DB_NAME, NATION, "n_nationkey=10/n_date=20150102");
+    partition = store.getPartition(DB_NAME, NATION, "n_nationkey=20/n_date=20150102");
     assertNull(partition);
 
     store.dropTable(DB_NAME, NATION);
@@ -339,7 +338,7 @@ public class TestHiveCatalogStore {
 
     for(String tableName : tableNames){
       TableDesc table = new TableDesc(CatalogUtil.buildFQName("default", tableName), schema, meta,
-          new Path(warehousePath, new Path(DB_NAME, tableName)).toUri());
+        new Path(warehousePath, new Path(DB_NAME, tableName)).toUri());
       store.createTable(table.getProto());
     }
 
@@ -370,7 +369,7 @@ public class TestHiveCatalogStore {
 
     TableDesc table1 = new TableDesc(store.getTable(DB_NAME, tableName));
     FileSystem fs = FileSystem.getLocal(new Configuration());
-    assertTrue(fs.exists(new Path(table1.getPath())));
+    assertTrue(fs.exists(new Path(table1.getUri())));
 
     store.dropTable(DB_NAME, tableName);
     assertFalse(store.existTable(DB_NAME, tableName));
@@ -389,20 +388,20 @@ public class TestHiveCatalogStore {
     schema.addColumn("r_comment", TajoDataTypes.Type.TEXT);
 
     TableDesc table = new TableDesc(CatalogUtil.buildFQName(DB_NAME, REGION), schema, meta,
-        new Path(warehousePath, new Path(DB_NAME, REGION)).toUri());
+      new Path(warehousePath, new Path(DB_NAME, REGION)).toUri());
     store.createTable(table.getProto());
     assertTrue(store.existTable(DB_NAME, REGION));
 
     TableDesc table1 = new TableDesc(store.getTable(DB_NAME, REGION));
     assertEquals(table.getName(), table1.getName());
-    assertEquals(table.getPath(), table1.getPath());
+    assertEquals(table.getUri(), table1.getUri());
     assertEquals(table.getSchema().size(), table1.getSchema().size());
     for (int i = 0; i < table.getSchema().size(); i++) {
       assertEquals(table.getSchema().getColumn(i).getSimpleName(), table1.getSchema().getColumn(i).getSimpleName());
     }
 
     assertEquals(StorageConstants.DEFAULT_BINARY_SERDE,
-        table1.getMeta().getOption(StorageConstants.SEQUENCEFILE_SERDE));
+      table1.getMeta().getOption(StorageConstants.SEQUENCEFILE_SERDE));
     store.dropTable(DB_NAME, REGION);
   }
 
@@ -418,13 +417,13 @@ public class TestHiveCatalogStore {
     schema.addColumn("r_comment", TajoDataTypes.Type.TEXT);
 
     TableDesc table = new TableDesc(CatalogUtil.buildFQName(DB_NAME, REGION), schema, meta,
-        new Path(warehousePath, new Path(DB_NAME, REGION)).toUri());
+      new Path(warehousePath, new Path(DB_NAME, REGION)).toUri());
     store.createTable(table.getProto());
     assertTrue(store.existTable(DB_NAME, REGION));
 
     TableDesc table1 = new TableDesc(store.getTable(DB_NAME, REGION));
     assertEquals(table.getName(), table1.getName());
-    assertEquals(table.getPath(), table1.getPath());
+    assertEquals(table.getUri(), table1.getUri());
     assertEquals(table.getSchema().size(), table1.getSchema().size());
     for (int i = 0; i < table.getSchema().size(); i++) {
       assertEquals(table.getSchema().getColumn(i).getSimpleName(), table1.getSchema().getColumn(i).getSimpleName());
@@ -450,13 +449,13 @@ public class TestHiveCatalogStore {
     schema.addColumn("c_comment", TajoDataTypes.Type.TEXT);
 
     TableDesc table = new TableDesc(CatalogUtil.buildFQName(DB_NAME, CUSTOMER), schema, meta,
-        new Path(warehousePath, new Path(DB_NAME, CUSTOMER)).toUri());
+      new Path(warehousePath, new Path(DB_NAME, CUSTOMER)).toUri());
     store.createTable(table.getProto());
     assertTrue(store.existTable(DB_NAME, CUSTOMER));
 
     TableDesc table1 = new TableDesc(store.getTable(DB_NAME, CUSTOMER));
     assertEquals(table.getName(), table1.getName());
-    assertEquals(table.getPath(), table1.getPath());
+    assertEquals(table.getUri(), table1.getUri());
     assertEquals(table.getSchema().size(), table1.getSchema().size());
     for (int i = 0; i < table.getSchema().size(); i++) {
       assertEquals(table.getSchema().getColumn(i).getSimpleName(), table1.getSchema().getColumn(i).getSimpleName());
@@ -491,7 +490,7 @@ public class TestHiveCatalogStore {
 
     TableDesc table1 = new TableDesc(store.getTable(DB_NAME, tableName));
     assertEquals(table.getName(), table1.getName());
-    assertEquals(table.getPath(), table1.getPath());
+    assertEquals(table.getUri(), table1.getUri());
     assertEquals(table.getSchema().size(), table1.getSchema().size());
     for (int i = 0; i < table.getSchema().size(); i++) {
       assertEquals(table.getSchema().getColumn(i).getSimpleName(), table1.getSchema().getColumn(i).getSimpleName());
