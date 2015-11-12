@@ -38,6 +38,7 @@ import java.io.IOException;
 public class SortBasedColPartitionStoreExec extends ColPartitionStoreExec {
 
   private ComparableTuple prevKey;
+  private String prevPartitionName;
 
   public SortBasedColPartitionStoreExec(TaskAttemptContext context, StoreTableNode plan, PhysicalExec child)
       throws IOException {
@@ -62,18 +63,24 @@ public class SortBasedColPartitionStoreExec extends ColPartitionStoreExec {
   @Override
   public Tuple next() throws IOException {
     Tuple tuple;
+    String partitionName;
     while(!context.isStopped() && (tuple = child.next()) != null) {
 
       if (prevKey == null) {
-        appender = getNextPartitionAppender(getSubdirectory(tuple));
+        partitionName = getSubdirectory(tuple);
+        appender = getNextPartitionAppender(partitionName);
         prevKey = new ComparableTuple(inSchema, keyIds);
         prevKey.set(tuple);
+        prevPartitionName = partitionName;
       } else if (!prevKey.equals(tuple)) {
         appender.close();
+        addPartition(prevPartitionName, appender.getStats().getNumBytes());
         StatisticsUtil.aggregateTableStat(aggregatedStats, appender.getStats());
+        partitionName = getSubdirectory(tuple);
 
-        appender = getNextPartitionAppender(getSubdirectory(tuple));
+        appender = getNextPartitionAppender(partitionName);
         prevKey.set(tuple);
+        prevPartitionName = partitionName;
 
         // reset all states for file rotating
         writtenFileNum = 0;
@@ -84,6 +91,7 @@ public class SortBasedColPartitionStoreExec extends ColPartitionStoreExec {
       if (maxPerFileSize > 0 && maxPerFileSize <= appender.getEstimatedOutputSize()) {
         appender.close();
         writtenFileNum++;
+        addPartition(prevPartitionName, appender.getStats().getNumBytes());
         StatisticsUtil.aggregateTableStat(aggregatedStats, appender.getStats());
 
         openAppender(writtenFileNum);
@@ -99,6 +107,7 @@ public class SortBasedColPartitionStoreExec extends ColPartitionStoreExec {
       appender.close();
 
       // Collect statistics data
+      addPartition(prevPartitionName, appender.getStats().getNumBytes());
       StatisticsUtil.aggregateTableStat(aggregatedStats, appender.getStats());
       context.setResultStats(aggregatedStats);
     }

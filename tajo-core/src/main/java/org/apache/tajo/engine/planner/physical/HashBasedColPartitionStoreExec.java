@@ -25,6 +25,7 @@ import org.apache.tajo.engine.planner.physical.ComparableVector.ComparableTuple;
 import org.apache.tajo.plan.logical.StoreTableNode;
 import org.apache.tajo.storage.Appender;
 import org.apache.tajo.storage.Tuple;
+import org.apache.tajo.util.Pair;
 import org.apache.tajo.util.StringUtils;
 import org.apache.tajo.worker.TaskAttemptContext;
 
@@ -40,7 +41,8 @@ import java.util.Map;
 public class HashBasedColPartitionStoreExec extends ColPartitionStoreExec {
 
   private final ComparableTuple partKey;
-  private final Map<ComparableTuple, Appender> appenderMap = new HashMap<>();
+  // Pair value consist of partition name and appender.
+  private final Map<ComparableTuple, Pair<String, Appender>> appenderMap = new HashMap<>();
 
   public HashBasedColPartitionStoreExec(TaskAttemptContext context, StoreTableNode plan, PhysicalExec child)
       throws IOException {
@@ -51,9 +53,9 @@ public class HashBasedColPartitionStoreExec extends ColPartitionStoreExec {
   private transient final StringBuilder sb = new StringBuilder();
 
   private Appender getAppender(ComparableTuple partitionKey, Tuple tuple) throws IOException {
-    Appender appender = appenderMap.get(partitionKey);
-    if (appender != null) {
-      return appender;
+    Pair<String, Appender> pair = appenderMap.get(partitionKey);
+    if (pair != null) {
+      return pair.getSecond();
     }
     sb.setLength(0);
     for (int i = 0; i < keyNum; i++) {
@@ -64,9 +66,9 @@ public class HashBasedColPartitionStoreExec extends ColPartitionStoreExec {
       Datum datum = tuple.asDatum(keyIds[i]);
       sb.append(StringUtils.escapePathName(datum.asChars()));
     }
-    appender = getNextPartitionAppender(sb.toString());
+    Appender appender = getNextPartitionAppender(sb.toString());
 
-    appenderMap.put(partitionKey.copy(), appender);
+    appenderMap.put(partitionKey.copy(), new Pair<>(sb.toString(), appender));
     return appender;
   }
 
@@ -83,10 +85,12 @@ public class HashBasedColPartitionStoreExec extends ColPartitionStoreExec {
     }
 
     List<TableStats> statSet = new ArrayList<>();
-    for (Appender app : appenderMap.values()) {
+    for (Pair<String, Appender> pair : appenderMap.values()) {
+      Appender app = pair.getSecond();
       app.flush();
       app.close();
       statSet.add(app.getStats());
+      addPartition(pair.getFirst(), app.getStats().getNumBytes());
     }
 
     // Collect and aggregated statistics data

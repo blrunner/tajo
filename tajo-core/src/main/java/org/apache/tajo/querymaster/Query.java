@@ -508,10 +508,6 @@ public class Query implements EventHandler<QueryEvent> {
         if (queryContext.hasOutputTableUri() && queryContext.hasPartition()) {
           List<PartitionDescProto> partitions = query.getPartitions();
           if (partitions != null) {
-            // Set contents length and file count to PartitionDescProto by listing final output directories.
-            List<PartitionDescProto> finalPartitions = getPartitionsWithContentsSummary(query.systemConf,
-              finalOutputDir, partitions);
-
             String databaseName, simpleTableName;
             if (CatalogUtil.isFQTableName(tableDesc.getName())) {
               String[] split = CatalogUtil.splitFQTableName(tableDesc.getName());
@@ -523,7 +519,7 @@ public class Query implements EventHandler<QueryEvent> {
             }
 
             // Store partitions to CatalogStore using alter table statement.
-            catalog.addPartitions(databaseName, simpleTableName, finalPartitions, true);
+            catalog.addPartitions(databaseName, simpleTableName, partitions, true);
             LOG.info("Added partitions to catalog (total=" + partitions.size() + ")");
           } else {
             LOG.info("Can't find partitions for adding.");

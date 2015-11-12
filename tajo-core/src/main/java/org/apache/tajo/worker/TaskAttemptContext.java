@@ -425,4 +425,13 @@ public class TaskAttemptContext {
       partitions.add(partition);
     }
   }
+
+  public PartitionDescProto getPartition(String partitionName) {
+    for(PartitionDescProto partition : partitions) {
+      if (partition.getPartitionName().equals(partitionName)) {
+        return partition;
+      }
+    }
+    return null;
+  }
 }

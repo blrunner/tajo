@@ -151,8 +151,6 @@ public abstract class ColPartitionStoreExec extends UnaryPhysicalExec {
 
     openAppender(0);
 
-    addPartition(partition);
-
     return appender;
   }
 
@@ -162,7 +160,15 @@ public abstract class ColPartitionStoreExec extends UnaryPhysicalExec {
    * @param partition partition name
    * @throws IOException
    */
-  private void addPartition(String partition) throws IOException {
+  protected void addPartition(String partition, long volume) throws IOException {
+    PartitionDescProto existingPartition = context.getPartition(partition);
+
+    long totalVolume = volume;
+    if (existingPartition != null) {
+      totalVolume += existingPartition.getNumBytes();
+      context.getPartitions().remove(existingPartition);
+    }
+
     PartitionDescProto.Builder builder = PartitionDescProto.newBuilder();
     builder.setPartitionName(partition);
 
@@ -180,6 +186,8 @@ public abstract class ColPartitionStoreExec extends UnaryPhysicalExec {
 
       builder.addPartitionKeys(keyBuilder.build());
     }
+
+    builder.setNumBytes(totalVolume);
 
     if (this.plan.getUri() == null) {
       // In CTAS, the uri would be null. So, it get the uri from staging directory.
