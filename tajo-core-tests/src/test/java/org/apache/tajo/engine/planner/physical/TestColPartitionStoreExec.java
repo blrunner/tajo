@@ -84,16 +84,20 @@ public class TestColPartitionStoreExec {
   private static FileTablespace sm;
   private static Path testDir;
   private static Session session = LocalTajoTestingUtility.createDummySession();
-  private static QueryContext defaultContext;
 
   private static TableDesc largeScore = null;
 
   private static MasterPlan masterPlan;
 
 
-  private final static String CreateTableAsStmts =
+  private final static String[] CreateTableAsStmts = {
     "CREATE TABLE score_part (deptname text, score int4, nullable text) PARTITION BY COLUMN (class text) " +
-      "AS SELECT deptname, score, nullable, class from score_large";
+      "AS SELECT deptname, score, nullable, class from score_large",
+    "CREATE TABLE score_part_compression (deptname text, score int4, nullable text) " +
+      " WITH ('text.delimiter'='|','compression.codec'='org.apache.hadoop.io.compress.DeflateCodec') " +
+      "PARTITION BY COLUMN (class text) " +
+      "AS SELECT deptname, score, nullable, class from score_large"
+  };
 
   public TestColPartitionStoreExec(String algorithm) {
     this.algorithm = algorithm;
@@ -122,7 +126,6 @@ public class TestColPartitionStoreExec {
       catalog.createFunction(funcDesc);
     }
 
-    defaultContext = LocalTajoTestingUtility.createDummyContext(conf);
     analyzer = new SQLAnalyzer();
     planner = new LogicalPlanner(catalog, TablespaceManager.getInstance());
     optimizer = new LogicalOptimizer(conf, catalog);
@@ -185,13 +188,14 @@ public class TestColPartitionStoreExec {
     FileFragment[] frags = FileTablespace.splitNG(conf, "default.score_large", largeScore.getMeta(),
       new Path(largeScore.getUri()), Integer.MAX_VALUE);
     TaskAttemptId id = LocalTajoTestingUtility.newTaskAttemptId(masterPlan);
-    Path workDir = CommonTestingUtil.getTestDir(TajoTestingCluster.DEFAULT_TEST_DIRECTORY + "/testPartitionedStorePlanWithAlgorithm");
+    Path workDir = CommonTestingUtil.getTestDir(TajoTestingCluster.DEFAULT_TEST_DIRECTORY
+      + "/testPartitionedStorePlanWithAlgorithm");
 
     // Setting session variables
     QueryContext queryContext = new QueryContext(conf, session);
     queryContext.setInt(SessionVars.MAX_OUTPUT_FILE_SIZE, 1);
 
-    Expr context = analyzer.parse(CreateTableAsStmts);
+    Expr context = analyzer.parse(CreateTableAsStmts[0]);
     LogicalPlan plan = planner.createPlan(queryContext, context);
     LogicalNode rootNode = optimizer.optimize(plan);
     CreateTableNode createTableNode = (CreateTableNode)rootNode.getChild(0);
@@ -237,6 +241,84 @@ public class TestColPartitionStoreExec {
 
       long expectedFileNum = (long) Math.ceil(fileVolumeSum / (float)StorageUnit.MB);
       assertEquals(expectedFileNum, fileStatuses.length);
+
+      PartitionDescProto partition = ctx.getPartition(status.getPath().getName());
+      assertNotNull(partition);
+      assertEquals(fileVolumeSum, partition.getNumBytes());
+    }
+
+    TableMeta outputMeta = CatalogUtil.newTableMeta("TEXT");
+    Scanner scanner = new MergeScanner(conf, rootNode.getOutSchema(), outputMeta, TUtil.newList(fragments));
+    scanner.init();
+
+    long rowNum = 0;
+    while (scanner.next() != null) {
+      rowNum++;
+    }
+
+    // checking the number of all written rows
+    assertTrue(largeScore.getStats().getNumRows() == rowNum);
+
+    assertEquals(2, ctx.getPartitions().size());
+
+    scanner.close();
+  }
+
+
+  @Test
+  public void testPartitionedStorePlanWithAlgorithmWithCompression() throws IOException, TajoException {
+    // Preparing working dir and input fragments
+    FileFragment[] frags = FileTablespace.splitNG(conf, "default.score_large", largeScore.getMeta(),
+      new Path(largeScore.getUri()), Integer.MAX_VALUE);
+    TaskAttemptId id = LocalTajoTestingUtility.newTaskAttemptId(masterPlan);
+    Path workDir = CommonTestingUtil.getTestDir(TajoTestingCluster.DEFAULT_TEST_DIRECTORY + "/testPartitionedStorePlanWithAlgorithmWithCompression");
+
+    // Setting session variables
+    QueryContext queryContext = new QueryContext(conf, session);
+    queryContext.setInt(SessionVars.MAX_OUTPUT_FILE_SIZE, 1);
+
+    Expr context = analyzer.parse(CreateTableAsStmts[1]);
+    LogicalPlan plan = planner.createPlan(queryContext, context);
+    LogicalNode rootNode = optimizer.optimize(plan);
+    CreateTableNode createTableNode = (CreateTableNode)rootNode.getChild(0);
+
+    // Preparing task context
+    TaskAttemptContext ctx = new TaskAttemptContext(queryContext, id, new FileFragment[] { frags[0] }, workDir);
+    ctx.setOutputPath(new Path(workDir, "part-01-000000"));
+
+    // Set partition algorithm
+    Enforcer enforcer = new Enforcer();
+    if (algorithm.equalsIgnoreCase("hash")) {
+      enforcer.enforceColumnPartitionAlgorithm(createTableNode.getPID(),
+        PlanProto.ColumnPartitionEnforcer.ColumnPartitionAlgorithm.HASH_PARTITION);
+    } else {
+      enforcer.enforceColumnPartitionAlgorithm(createTableNode.getPID(),
+        PlanProto.ColumnPartitionEnforcer.ColumnPartitionAlgorithm.SORT_PARTITION);
+    }
+
+    ctx.setEnforcer(new Enforcer());
+    // Executing CREATE TABLE PARTITION BY
+    PhysicalPlanner phyPlanner = new PhysicalPlannerImpl(conf);
+    PhysicalExec exec = phyPlanner.createPlan(ctx, rootNode);
+    exec.init();
+    exec.next();
+    exec.close();
+
+    FileSystem fs = sm.getFileSystem();
+    FileStatus [] list = fs.listStatus(workDir);
+    // checking the number of partitions
+    assertEquals(2, list.length);
+
+    List<Fragment> fragments = Lists.newArrayList();
+    for (FileStatus status : list) {
+      assertTrue(status.isDirectory());
+
+      long fileVolumeSum = 0;
+      FileStatus [] fileStatuses = fs.listStatus(status.getPath());
+      for (FileStatus fileStatus : fileStatuses) {
+        fileVolumeSum += fileStatus.getLen();
+        fragments.add(new FileFragment("partition", fileStatus.getPath(), 0, fileStatus.getLen()));
+      }
 
       PartitionDescProto partition = ctx.getPartition(status.getPath().getName());
       assertNotNull(partition);
