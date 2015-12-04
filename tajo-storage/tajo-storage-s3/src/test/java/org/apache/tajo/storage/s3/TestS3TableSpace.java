@@ -20,7 +20,6 @@ package org.apache.tajo.storage.s3;
 
 import net.minidev.json.JSONObject;
 import org.apache.tajo.conf.TajoConf;
-import org.apache.tajo.storage.Tablespace;
 import org.apache.tajo.storage.TablespaceManager;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -30,7 +29,6 @@ import java.io.IOException;
 import java.net.URI;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 public class TestS3TableSpace {
@@ -42,9 +40,7 @@ public class TestS3TableSpace {
     S3TableSpace tablespace = new S3TableSpace(SPACENAME, URI.create(S3_URI), new JSONObject());
 
     TajoConf tajoConf = new TajoConf();
-    tajoConf.set("fs.s3n.awsSecretAccessKey", "test_secret_access_key");
-    tajoConf.set("fs.s3n.awsAccessKeyId", "test_access_key_id");
-
+    tajoConf.set("fs.s3.impl", MockS3FileSystem.class.getName());
     tablespace.init(tajoConf);
 
     TablespaceManager.addTableSpaceForTest(tablespace);
@@ -60,9 +56,7 @@ public class TestS3TableSpace {
     assertTrue((TablespaceManager.getByName(SPACENAME)) instanceof S3TableSpace);
     assertEquals(SPACENAME, (TablespaceManager.getByName(SPACENAME).getName()));
 
-    Tablespace tablespace = TablespaceManager.get(S3_URI);
-    assertNotNull(tablespace);
-    assertTrue(tablespace instanceof S3TableSpace);
-    assertEquals(S3_URI, tablespace.getUri().toASCIIString());
+    assertTrue((TablespaceManager.get(S3_URI)) instanceof S3TableSpace);
+    assertEquals(S3_URI, TablespaceManager.get(S3_URI).getUri().toASCIIString());
   }
 }
