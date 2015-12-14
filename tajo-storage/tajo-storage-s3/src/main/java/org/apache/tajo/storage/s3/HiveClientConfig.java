@@ -15,9 +15,9 @@
 package org.apache.tajo.storage.s3;
 
 
-import com.facebook.presto.hive.shaded.com.google.common.collect.Lists;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.google.common.net.HostAndPort;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
