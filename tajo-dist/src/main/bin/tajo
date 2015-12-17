@@ -204,6 +204,10 @@ CLASSPATH="${HADOOP_CONF_DIR}:${JAVA_HOME}/lib/tools.jar"
 # Hadoop Version Checking Section End
 ##############################################################################
 
+S3_HOME=$TAJO_HOME/s3
+CLASSPATH=${S3_HOME}:${CLASSPATH}
+
+
 ##############################################################################
 # Find and Set Hadoop CLASSPATH
 ##############################################################################
