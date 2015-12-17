@@ -16,8 +16,9 @@ package org.apache.tajo.storage.s3;
 
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 
 import java.util.Arrays;
 import java.util.List;
@@ -30,7 +31,7 @@ import static java.util.Objects.requireNonNull;
 
 public class RetryDriver
 {
-  private static final Logger log = Logger.get(RetryDriver.class);
+  private static final Log log = LogFactory.getLog(RetryDriver.class);
   private static final int DEFAULT_RETRY_ATTEMPTS = 10;
   private static final Duration DEFAULT_SLEEP_TIME = Duration.valueOf("1s");
   private static final Duration DEFAULT_MAX_RETRY_TIME = Duration.valueOf("30s");
@@ -147,7 +148,8 @@ public class RetryDriver
         if (attempt >= maxAttempts || Duration.nanosSince(startTime).compareTo(maxRetryTime) >= 0) {
           throw e;
         }
-        log.debug("Failed on executing %s with attempt %d, will retry. Exception: %s", callableName, attempt, e.getMessage());
+        log.debug("Failed on executing " + callableName + " with attempt " + attempt +
+          " , will retry. Exception: " + e.getMessage());
 
         int delayInMs = (int) Math.min(minSleepTime.toMillis() * Math.pow(scaleFactor, attempt - 1), maxSleepTime.toMillis());
         TimeUnit.MILLISECONDS.sleep(delayInMs);

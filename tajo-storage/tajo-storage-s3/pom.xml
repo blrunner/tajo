@@ -36,7 +36,8 @@
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <airlft.version>0.97</airlft.version>
     <aws-java-sdk.version>1.8.9.1</aws-java-sdk.version>
-    <joda-time.version>2.4</joda-time.version>
+    <joda-time.version>2.8.1</joda-time.version>
+    <guava.version>18.0</guava.version>
   </properties>
 
   <repositories>
@@ -448,17 +449,17 @@
       </exclusions>
     </dependency>
 
-    <dependency>
-      <groupId>io.airlift</groupId>
-      <artifactId>log</artifactId>
-      <version>${airlft.version}</version>
-      <exclusions>
-        <exclusion>
-          <groupId>javax.inject</groupId>
-          <artifactId>javax.inject</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
+    <!--<dependency>-->
+      <!--<groupId>io.airlift</groupId>-->
+      <!--<artifactId>log</artifactId>-->
+      <!--<version>${airlft.version}</version>-->
+      <!--<exclusions>-->
+        <!--<exclusion>-->
+          <!--<groupId>javax.inject</groupId>-->
+          <!--<artifactId>javax.inject</artifactId>-->
+        <!--</exclusion>-->
+      <!--</exclusions>-->
+    <!--</dependency>-->
 
     <dependency>
       <groupId>io.airlift</groupId>
@@ -631,17 +632,6 @@
       <groupId>javax.validation</groupId>
       <artifactId>validation-api</artifactId>
       <version>1.1.0.Final</version>
-    </dependency>
-
-    <dependency>
-      <groupId>com.google.guava</groupId>
-      <artifactId>guava</artifactId>
-      <exclusions>
-        <exclusion>
-          <groupId>com.google.code.findbugs</groupId>
-          <artifactId>jsr305</artifactId>
-        </exclusion>
-      </exclusions>
     </dependency>
 
     <dependency>
