@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.tajo.plan.rewrite;
 
 import org.apache.commons.logging.Log;
@@ -30,7 +31,6 @@ import org.apache.tajo.plan.logical.LogicalNode;
 import org.apache.tajo.plan.logical.ScanNode;
 import org.apache.tajo.plan.visitor.BasicLogicalPlanVisitor;
 import org.apache.tajo.storage.StorageService;
-import org.apache.tajo.unit.StorageUnit;
 
 import java.util.Stack;
 
@@ -82,7 +82,7 @@ public class TableStatUpdateRewriter implements LogicalPlanRewriteRule {
         // If USE_TABLE_VOLUME is set, we will update the table volume through a storage handler.
         // In addition, if the table size is zero, we will update too.
         // It is a good workaround to avoid suboptimal join orders without cheap cost.
-        if (tableSize == 0) {
+        if (conf.getBool(SessionVars.USE_TABLE_VOLUME) || tableSize == 0) {
           table.getStats().setNumBytes(getTableVolume(table));
         }
       }
@@ -102,7 +102,7 @@ public class TableStatUpdateRewriter implements LogicalPlanRewriteRule {
     }
 
     private boolean isVirtual(TableDesc table) {
-      return table.getMeta().getDataFormat().equals("SYSTEM") || table.getMeta().getDataFormat().equals("FAKEFILE");
+      return table.getMeta().getDataFormat().equals("SYSTEM");
     }
 
     private long getTableVolume(TableDesc table) {
