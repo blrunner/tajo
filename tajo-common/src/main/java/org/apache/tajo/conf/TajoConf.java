@@ -249,8 +249,8 @@ public class TajoConf extends Configuration {
     S3_MAX_CONNECTIONS("tajo.s3.max-connections", 500),
     S3_USE_INSTANCE_CREDENTIALS("tajo.s3.use-instance-credentials", true),
 
-    S3_MULTIPART_MIN_FILE_SIZE("tajo.s3.multipart.min-file-size", 16), // 16MB
-    S3_MULTIPART_MIN_PART_SIZE("tajo.s3.multipart.min-part-size", 5), // 5MB
+    S3_MULTIPART_MIN_FILE_SIZE("tajo.s3.multipart.min-file-size", 16 * 1024 * 1024), // 16MB
+    S3_MULTIPART_MIN_PART_SIZE("tajo.s3.multipart.min-part-size", 5 * 1024 * 1024), // 5MB
 
     // RPC --------------------------------------------------------------------
     //  Internal RPC Client
