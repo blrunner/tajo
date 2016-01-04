@@ -27,7 +27,6 @@ import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.*;
-import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.transfer.Transfer;
 import com.amazonaws.services.s3.transfer.TransferManager;
 import com.amazonaws.services.s3.transfer.TransferManagerConfiguration;
@@ -46,10 +45,8 @@ import org.apache.hadoop.fs.*;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.fs.s3.S3Credentials;
-import org.apache.hadoop.fs.s3a.S3AFileStatus;
 import org.apache.hadoop.util.Progressable;
-import org.jets3t.service.ServiceException;
-import org.jets3t.service.model.*;
+import org.apache.tajo.conf.TajoConf;
 import org.weakref.jmx.internal.guava.collect.AbstractSequentialIterator;
 
 import java.io.*;
@@ -74,31 +71,18 @@ import static org.apache.hadoop.fs.s3a.Constants.MIN_MULTIPART_THRESHOLD;
 import static org.apache.http.HttpStatus.*;
 import static org.apache.tajo.storage.s3.RetryDriver.retry;
 
-public class PrestoS3FileSystem  extends FileSystem {
-  private static final Log log = LogFactory.getLog(PrestoS3FileSystem.class);
+public class TajoS3FileSystem extends FileSystem {
+  private static final Log log = LogFactory.getLog(TajoS3FileSystem.class);
 
-  private static final PrestoS3FileSystemStats STATS = new PrestoS3FileSystemStats();
-  private static final PrestoS3FileSystemMetricCollector METRIC_COLLECTOR
-    = new PrestoS3FileSystemMetricCollector(STATS);
+  private static final TajoS3FileSystemStats STATS = new TajoS3FileSystemStats();
+  private static final TajoS3FileSystemMetricCollector METRIC_COLLECTOR
+    = new TajoS3FileSystemMetricCollector(STATS);
 
-  public static PrestoS3FileSystemStats getFileSystemStats() {
+  public static TajoS3FileSystemStats getFileSystemStats() {
     return STATS;
   }
 
   private static final String DIRECTORY_SUFFIX = "_$folder$";
-
-  public static final String S3_SSL_ENABLED = "presto.s3.ssl.enabled";
-  public static final String S3_MAX_ERROR_RETRIES = "presto.s3.max-error-retries";
-  public static final String S3_MAX_CLIENT_RETRIES = "presto.s3.max-client-retries";
-  public static final String S3_MAX_BACKOFF_TIME = "presto.s3.max-backoff-time";
-  public static final String S3_MAX_RETRY_TIME = "presto.s3.max-retry-time";
-  public static final String S3_CONNECT_TIMEOUT = "presto.s3.connect-timeout";
-  public static final String S3_SOCKET_TIMEOUT = "presto.s3.socket-timeout";
-  public static final String S3_MAX_CONNECTIONS = "presto.s3.max-connections";
-  public static final String S3_STAGING_DIRECTORY = "hive.s3.staging-directory";
-  public static final String S3_MULTIPART_MIN_FILE_SIZE = "presto.s3.multipart.min-file-size";
-  public static final String S3_MULTIPART_MIN_PART_SIZE = "presto.s3.multipart.min-part-size";
-  public static final String S3_USE_INSTANCE_CREDENTIALS = "presto.s3.use-instance-credentials";
 
   private static final DataSize BLOCK_SIZE = new DataSize(32, MEGABYTE);
   private static final DataSize MAX_SKIP_SIZE = new DataSize(1, MEGABYTE);
@@ -122,6 +106,8 @@ public class PrestoS3FileSystem  extends FileSystem {
 
   private static final String FOLDER_SUFFIX = "_$folder$";
 
+  private TajoConf conf;
+
   @Override
   public void initialize(URI uri, Configuration conf) throws IOException {
     requireNonNull(uri, "uri is null");
@@ -129,71 +115,28 @@ public class PrestoS3FileSystem  extends FileSystem {
     super.initialize(uri, conf);
     setConf(conf);
 
+    this.conf = new TajoConf(conf);
+
     this.uri = URI.create(uri.getScheme() + "://" + uri.getAuthority());
     this.workingDirectory = new Path("/").makeQualified(this.uri, new Path("/"));
 
-    HiveClientConfig defaults = new HiveClientConfig();
+    this.stagingDirectory = new File(this.conf.getVar(TajoConf.ConfVars.STAGING_ROOT_DIR));
 
-    //      hive.s3.staging-directory
-    //      private File s3StagingDirectory = new File(System.getProperty("java.io.tmpdir"));
+    this.maxAttempts = this.conf.getIntVar(TajoConf.ConfVars.S3_MAX_CLIENT_RETRIES);
+    this.maxBackoffTime = Duration.valueOf(this.conf.getVar(TajoConf.ConfVars.S3_MAX_BACKOFF_TIME));
+    this.maxRetryTime = Duration.valueOf(this.conf.getVar(TajoConf.ConfVars.S3_MAX_RETRY_TIME));
 
-    this.stagingDirectory = new File(conf.get(S3_STAGING_DIRECTORY, defaults.getS3StagingDirectory().toString()));
+    int maxErrorRetries = this.conf.getIntVar(TajoConf.ConfVars.S3_MAX_ERROR_RETRIES);
+    boolean sslEnabled = this.conf.getBoolVar(TajoConf.ConfVars.S3_SSL_ENABLED);
 
+    Duration connectTimeout = Duration.valueOf(this.conf.getVar(TajoConf.ConfVars.S3_CONNECT_TIMEOUT));
+    Duration socketTimeout = Duration.valueOf(this.conf.getVar(TajoConf.ConfVars.S3_SOCKET_TIMEOUT));
+    int maxConnections = this.conf.getIntVar(TajoConf.ConfVars.S3_MAX_CONNECTIONS);
 
-    //      @Config("hive.s3.max-client-retries")
-    //      private int s3MaxClientRetries = 3;
-    this.maxAttempts = conf.getInt(S3_MAX_CLIENT_RETRIES, defaults.getS3MaxClientRetries()) + 1;
+    long minFileSize = this.conf.getLongVar(TajoConf.ConfVars.S3_MULTIPART_MIN_FILE_SIZE);
+    long minPartSize = this.conf.getLongVar(TajoConf.ConfVars.S3_MULTIPART_MIN_PART_SIZE);
 
-
-    //      @Config("hive.s3.max-backoff-time")
-    //      private Duration s3MaxBackoffTime = new Duration(10, TimeUnit.MINUTES);
-    this.maxBackoffTime = Duration.valueOf(conf.get(S3_MAX_BACKOFF_TIME, defaults.getS3MaxBackoffTime().toString()));
-
-
-    //      @Config("hive.s3.max-retry-time")
-    //      private Duration s3MaxRetryTime = new Duration(10, TimeUnit.MINUTES);
-    this.maxRetryTime = Duration.valueOf(conf.get(S3_MAX_RETRY_TIME, defaults.getS3MaxRetryTime().toString()));
-
-
-    //      @Config("hive.s3.max-error-retries")
-    //      private int s3MaxErrorRetries = 10;
-    int maxErrorRetries = conf.getInt(S3_MAX_ERROR_RETRIES, defaults.getS3MaxErrorRetries());
-
-
-    //      @Config("hive.s3.ssl.enabled")
-    //      private boolean s3SslEnabled = true;
-    boolean sslEnabled = conf.getBoolean(S3_SSL_ENABLED, defaults.isS3SslEnabled());
-
-
-    //      @Config("hive.s3.connect-timeout")
-    //      private Duration s3ConnectTimeout = new Duration(5, TimeUnit.SECONDS);
-    Duration connectTimeout = Duration.valueOf(conf.get(S3_CONNECT_TIMEOUT
-    , defaults.getS3ConnectTimeout().toString()));
-
-
-    //      @Config("hive.s3.socket-timeout")
-    //      private Duration s3SocketTimeout = new Duration(5, TimeUnit.SECONDS);
-    Duration socketTimeout = Duration.valueOf(conf.get(S3_SOCKET_TIMEOUT, defaults.getS3SocketTimeout().toString()));
-
-
-    //      @Config("hive.s3.max-connections")
-    //      private int s3MaxConnections = 500;
-    int maxConnections = conf.getInt(S3_MAX_CONNECTIONS, defaults.getS3MaxConnections());
-
-
-    //      @Config("hive.s3.multipart.min-file-size")
-    //      private DataSize s3MultipartMinFileSize = new DataSize(16, MEGABYTE);
-    long minFileSize = conf.getLong(S3_MULTIPART_MIN_FILE_SIZE, defaults.getS3MultipartMinFileSize().toBytes());
-
-
-    //      @Config("hive.s3.multipart.min-part-size")
-    //      private DataSize s3MultipartMinPartSize = new DataSize(5, MEGABYTE);
-    long minPartSize = conf.getLong(S3_MULTIPART_MIN_PART_SIZE, defaults.getS3MultipartMinPartSize().toBytes());
-
-
-    //      @Config("hive.s3.use-instance-credentials")
-    //      private boolean s3UseInstanceCredentials = true;
-    this.useInstanceCredentials = conf.getBoolean(S3_USE_INSTANCE_CREDENTIALS, defaults.isS3UseInstanceCredentials());
+    this.useInstanceCredentials = this.conf.getBoolVar(TajoConf.ConfVars.S3_USE_INSTANCE_CREDENTIALS);
 
     serverSideEncryptionAlgorithm = conf.get(SERVER_SIDE_ENCRYPTION_ALGORITHM);
 
@@ -314,7 +257,7 @@ public class PrestoS3FileSystem  extends FileSystem {
   public FSDataInputStream open(Path path, int bufferSize) throws IOException {
     return new FSDataInputStream(
       new BufferedFSInputStream(
-        new PrestoS3InputStream(s3, uri.getHost(), path, maxAttempts, maxBackoffTime, maxRetryTime),
+        new TajoS3InputStream(s3, uri.getHost(), path, maxAttempts, maxBackoffTime, maxRetryTime),
           bufferSize));
   }
 
@@ -326,11 +269,11 @@ public class PrestoS3FileSystem  extends FileSystem {
     }
 
     createDirectories(stagingDirectory.toPath());
-    File tempFile = createTempFile(stagingDirectory.toPath(), "presto-s3-", ".tmp").toFile();
+    File tempFile = createTempFile(stagingDirectory.toPath(), "tajo-s3-", ".tmp").toFile();
 
     String key = keyFromPath(qualifiedPath(path));
     return new FSDataOutputStream(
-      new PrestoS3OutputStream(s3, transferConfig, uri.getHost(), key, tempFile),
+      new TajoS3OutputStream(s3, transferConfig, uri.getHost(), key, tempFile),
         statistics);
   }
 
@@ -580,9 +523,6 @@ public class PrestoS3FileSystem  extends FileSystem {
       om.setServerSideEncryption(serverSideEncryptionAlgorithm);
     }
 
-
-//      s3.putObject(bucketName, objectName + "/" + pathName + FOLDER_SUFFIX, new ByteArrayInputStream(new byte[0]), om);
-
     PutObjectRequest putObjectRequest = new PutObjectRequest(bucketName, objectName, im, om);
     putObjectRequest.setCannedAcl(cannedACL);
     s3.putObject(putObjectRequest);
@@ -775,7 +715,7 @@ public class PrestoS3FileSystem  extends FileSystem {
     return new BasicAWSCredentials(credentials.getAccessKey(), credentials.getSecretAccessKey());
   }
 
-  private static class PrestoS3InputStream extends FSInputStream {
+  private static class TajoS3InputStream extends FSInputStream {
     private final AmazonS3 s3;
     private final String host;
     private final Path path;
@@ -788,7 +728,7 @@ public class PrestoS3FileSystem  extends FileSystem {
     private long streamPosition;
     private long nextReadPosition;
 
-    public PrestoS3InputStream(AmazonS3 s3, String host, Path path, int maxAttempts, Duration maxBackoffTime,
+    public TajoS3InputStream(AmazonS3 s3, String host, Path path, int maxAttempts, Duration maxBackoffTime,
                                Duration maxRetryTime) {
       this.s3 = requireNonNull(s3, "s3 is null");
       this.host = requireNonNull(host, "host is null");
@@ -954,7 +894,7 @@ public class PrestoS3FileSystem  extends FileSystem {
     }
   }
 
-  private static class PrestoS3OutputStream extends FilterOutputStream {
+  private static class TajoS3OutputStream extends FilterOutputStream {
     private final TransferManager transferManager;
     private final String host;
     private final String key;
@@ -962,7 +902,7 @@ public class PrestoS3FileSystem  extends FileSystem {
 
     private boolean closed;
 
-    public PrestoS3OutputStream(AmazonS3 s3, TransferManagerConfiguration config, String host, String key,
+    public TajoS3OutputStream(AmazonS3 s3, TransferManagerConfiguration config, String host, String key,
                                 File tempFile) throws IOException {
       super(new BufferedOutputStream(new FileOutputStream(requireNonNull(tempFile, "tempFile is null"))));
 

@@ -236,6 +236,22 @@ public class TajoConf extends Configuration {
     // for RCFile
     HIVEUSEEXPLICITRCFILEHEADER("tajo.exec.rcfile.use.explicit.header", true, Validators.bool()),
 
+    // S3TableSpace Configuration --------------------------------------------------
+
+    S3_MAX_CLIENT_RETRIES("tajo.s3.max-client-retries", 3),
+    S3_MAX_BACKOFF_TIME("tajo.s3.max-backoff-time", "10m"),
+    S3_MAX_RETRY_TIME("tajo.s3.max-retry-time", "10m"),
+
+    S3_MAX_ERROR_RETRIES("tajo.s3.max-error-retries", 10),
+    S3_SSL_ENABLED("tajo.s3.ssl.enabled", true),
+    S3_CONNECT_TIMEOUT("tajo.s3.connect-timeout", "5s"),
+    S3_SOCKET_TIMEOUT("tajo.s3.socket-timeout", "5s"),
+    S3_MAX_CONNECTIONS("tajo.s3.max-connections", 500),
+    S3_USE_INSTANCE_CREDENTIALS("tajo.s3.use-instance-credentials", true),
+
+    S3_MULTIPART_MIN_FILE_SIZE("tajo.s3.multipart.min-file-size", 16), // 16MB
+    S3_MULTIPART_MIN_PART_SIZE("tajo.s3.multipart.min-part-size", 5), // 5MB
+
     // RPC --------------------------------------------------------------------
     //  Internal RPC Client
     INTERNAL_RPC_CLIENT_WORKER_THREAD_NUM("tajo.internal.rpc.client.worker-thread-num",

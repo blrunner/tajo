@@ -24,12 +24,12 @@ import static com.amazonaws.util.AWSRequestMetrics.Field;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-public class PrestoS3FileSystemMetricCollector
+public class TajoS3FileSystemMetricCollector
         extends RequestMetricCollector
 {
-    private final PrestoS3FileSystemStats stats;
+    private final TajoS3FileSystemStats stats;
 
-    public PrestoS3FileSystemMetricCollector(PrestoS3FileSystemStats stats)
+    public TajoS3FileSystemMetricCollector(TajoS3FileSystemStats stats)
     {
         this.stats = requireNonNull(stats, "stats is null");
     }

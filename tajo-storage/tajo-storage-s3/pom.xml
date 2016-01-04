@@ -38,6 +38,7 @@
     <aws-java-sdk.version>1.8.9.1</aws-java-sdk.version>
     <joda-time.version>2.8.1</joda-time.version>
     <guava.version>18.0</guava.version>
+    <jackson2.version>2.2.3</jackson2.version>
   </properties>
 
   <repositories>
@@ -351,6 +352,20 @@
         </exclusion>
       </exclusions>
     </dependency>
+
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <scope>test</scope>
+      <version>${jackson2.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-annotations</artifactId>
+      <scope>test</scope>
+      <version>${jackson2.version}</version>
+    </dependency>
+
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
@@ -448,18 +463,6 @@
         </exclusion>
       </exclusions>
     </dependency>
-
-    <!--<dependency>-->
-      <!--<groupId>io.airlift</groupId>-->
-      <!--<artifactId>log</artifactId>-->
-      <!--<version>${airlft.version}</version>-->
-      <!--<exclusions>-->
-        <!--<exclusion>-->
-          <!--<groupId>javax.inject</groupId>-->
-          <!--<artifactId>javax.inject</artifactId>-->
-        <!--</exclusion>-->
-      <!--</exclusions>-->
-    <!--</dependency>-->
 
     <dependency>
       <groupId>io.airlift</groupId>
@@ -714,6 +717,18 @@
         <exclusion>
           <groupId>commons-codec</groupId>
           <artifactId>commons-codec</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.httpcomponents</groupId>
+      <artifactId>httpcore</artifactId>
+      <version>4.4.1</version>
+      <exclusions>
+        <exclusion>
+          <groupId>junit</groupId>
+          <artifactId>junit</artifactId>
         </exclusion>
       </exclusions>
     </dependency>

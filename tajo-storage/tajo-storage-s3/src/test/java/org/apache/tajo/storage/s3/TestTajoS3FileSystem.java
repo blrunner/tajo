@@ -27,6 +27,7 @@ import com.google.common.base.Throwables;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.Path;
+import org.apache.tajo.conf.TajoConf;
 import org.testng.annotations.Test;
 
 import java.lang.reflect.Field;
@@ -40,7 +41,7 @@ import static org.apache.http.HttpStatus.SC_NOT_FOUND;
 import static org.apache.http.HttpStatus.SC_REQUESTED_RANGE_NOT_SATISFIABLE;
 import static org.testng.Assert.assertEquals;
 
-public class TestPrestoS3FileSystem
+public class TestTajoS3FileSystem
 {
   @Test
   public void testStaticCredentials()
@@ -51,7 +52,7 @@ public class TestPrestoS3FileSystem
     config.set("fs.s3n.awsAccessKeyId", "test_access_key_id");
     // the static credentials should be preferred
 
-    try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+    try (TajoS3FileSystem fs = new TajoS3FileSystem()) {
       fs.initialize(new URI("s3n://test-bucket/"), config);
       assertInstanceOf(getAwsCredentialsProvider(fs), StaticCredentialsProvider.class);
     }
@@ -64,7 +65,7 @@ public class TestPrestoS3FileSystem
     Configuration config = new Configuration();
     // instance credentials are enabled by default
 
-    try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+    try (TajoS3FileSystem fs = new TajoS3FileSystem()) {
       fs.initialize(new URI("s3n://test-bucket/"), config);
       assertInstanceOf(getAwsCredentialsProvider(fs), InstanceProfileCredentialsProvider.class);
     }
@@ -75,9 +76,9 @@ public class TestPrestoS3FileSystem
     throws Exception
   {
     Configuration config = new Configuration();
-    config.setBoolean(PrestoS3FileSystem.S3_USE_INSTANCE_CREDENTIALS, false);
+    config.setBoolean(TajoConf.ConfVars.S3_USE_INSTANCE_CREDENTIALS.keyname(), false);
 
-    try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+    try (TajoS3FileSystem fs = new TajoS3FileSystem()) {
       fs.initialize(new URI("s3n://test-bucket/"), config);
     }
   }
@@ -87,14 +88,14 @@ public class TestPrestoS3FileSystem
   public void testReadRetryCounters()
     throws Exception
   {
-    try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+    try (TajoS3FileSystem fs = new TajoS3FileSystem()) {
       int maxRetries = 2;
       MockAmazonS3 s3 = new MockAmazonS3();
       s3.setGetObjectHttpErrorCode(SC_INTERNAL_SERVER_ERROR);
       Configuration configuration = new Configuration();
-      configuration.set(PrestoS3FileSystem.S3_MAX_BACKOFF_TIME, "1ms");
-      configuration.set(PrestoS3FileSystem.S3_MAX_RETRY_TIME, "5s");
-      configuration.setInt(PrestoS3FileSystem.S3_MAX_CLIENT_RETRIES, maxRetries);
+      configuration.set(TajoConf.ConfVars.S3_MAX_BACKOFF_TIME.keyname(), "1ms");
+      configuration.set(TajoConf.ConfVars.S3_MAX_RETRY_TIME.keyname(), "5s");
+      configuration.setInt(TajoConf.ConfVars.S3_MAX_CLIENT_RETRIES.keyname(), maxRetries);
       fs.initialize(new URI("s3n://test-bucket/"), configuration);
       fs.setS3Client(s3);
       try (FSDataInputStream inputStream = fs.open(new Path("s3n://test-bucket/test"))) {
@@ -103,8 +104,8 @@ public class TestPrestoS3FileSystem
       catch (Throwable expected) {
         assertInstanceOf(expected, AmazonS3Exception.class);
         assertEquals(((AmazonS3Exception) expected).getStatusCode(), SC_INTERNAL_SERVER_ERROR);
-        assertEquals(PrestoS3FileSystem.getFileSystemStats().getReadRetries().getTotalCount(), maxRetries);
-        assertEquals(PrestoS3FileSystem.getFileSystemStats().getGetObjectRetries().getTotalCount(), (maxRetries + 1L) * maxRetries);
+        assertEquals(TajoS3FileSystem.getFileSystemStats().getReadRetries().getTotalCount(), maxRetries);
+        assertEquals(TajoS3FileSystem.getFileSystemStats().getGetObjectRetries().getTotalCount(), (maxRetries + 1L) * maxRetries);
       }
     }
   }
@@ -114,13 +115,13 @@ public class TestPrestoS3FileSystem
   public void testGetMetadataRetryCounter()
   {
     int maxRetries = 2;
-    try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+    try (TajoS3FileSystem fs = new TajoS3FileSystem()) {
       MockAmazonS3 s3 = new MockAmazonS3();
       s3.setGetObjectMetadataHttpCode(SC_INTERNAL_SERVER_ERROR);
       Configuration configuration = new Configuration();
-      configuration.set(PrestoS3FileSystem.S3_MAX_BACKOFF_TIME, "1ms");
-      configuration.set(PrestoS3FileSystem.S3_MAX_RETRY_TIME, "5s");
-      configuration.setInt(PrestoS3FileSystem.S3_MAX_CLIENT_RETRIES, maxRetries);
+      configuration.set(TajoConf.ConfVars.S3_MAX_BACKOFF_TIME.keyname(), "1ms");
+      configuration.set(TajoConf.ConfVars.S3_MAX_RETRY_TIME.keyname(), "5s");
+      configuration.setInt(TajoConf.ConfVars.S3_MAX_CLIENT_RETRIES.keyname(), maxRetries);
       fs.initialize(new URI("s3n://test-bucket/"), configuration);
       fs.setS3Client(s3);
       fs.getS3ObjectMetadata(new Path("s3n://test-bucket/test"));
@@ -128,7 +129,7 @@ public class TestPrestoS3FileSystem
     catch (Throwable expected) {
       assertInstanceOf(expected, AmazonS3Exception.class);
       assertEquals(((AmazonS3Exception) expected).getStatusCode(), SC_INTERNAL_SERVER_ERROR);
-      assertEquals(PrestoS3FileSystem.getFileSystemStats().getGetMetadataRetries().getTotalCount(), maxRetries);
+      assertEquals(TajoS3FileSystem.getFileSystemStats().getGetMetadataRetries().getTotalCount(), maxRetries);
     }
   }
 
@@ -137,7 +138,7 @@ public class TestPrestoS3FileSystem
   public void testReadNotFound()
     throws Exception
   {
-    try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+    try (TajoS3FileSystem fs = new TajoS3FileSystem()) {
       MockAmazonS3 s3 = new MockAmazonS3();
       s3.setGetObjectHttpErrorCode(SC_NOT_FOUND);
       fs.initialize(new URI("s3n://test-bucket/"), new Configuration());
@@ -153,7 +154,7 @@ public class TestPrestoS3FileSystem
   public void testReadForbidden()
     throws Exception
   {
-    try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+    try (TajoS3FileSystem fs = new TajoS3FileSystem()) {
       MockAmazonS3 s3 = new MockAmazonS3();
       s3.setGetObjectHttpErrorCode(SC_FORBIDDEN);
       fs.initialize(new URI("s3n://test-bucket/"), new Configuration());
@@ -168,7 +169,7 @@ public class TestPrestoS3FileSystem
   public void testReadRequestRangeNotSatisfiable()
     throws Exception
   {
-    try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+    try (TajoS3FileSystem fs = new TajoS3FileSystem()) {
       MockAmazonS3 s3 = new MockAmazonS3();
       s3.setGetObjectHttpErrorCode(SC_REQUESTED_RANGE_NOT_SATISFIABLE);
       fs.initialize(new URI("s3n://test-bucket/"), new Configuration());
@@ -183,7 +184,7 @@ public class TestPrestoS3FileSystem
   public void testGetMetadataForbidden()
     throws Exception
   {
-    try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+    try (TajoS3FileSystem fs = new TajoS3FileSystem()) {
       MockAmazonS3 s3 = new MockAmazonS3();
       s3.setGetObjectMetadataHttpCode(SC_FORBIDDEN);
       fs.initialize(new URI("s3n://test-bucket/"), new Configuration());
@@ -196,7 +197,7 @@ public class TestPrestoS3FileSystem
   public void testGetMetadataNotFound()
     throws Exception
   {
-    try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+    try (TajoS3FileSystem fs = new TajoS3FileSystem()) {
       MockAmazonS3 s3 = new MockAmazonS3();
       s3.setGetObjectMetadataHttpCode(SC_NOT_FOUND);
       fs.initialize(new URI("s3n://test-bucket/"), new Configuration());
@@ -205,7 +206,7 @@ public class TestPrestoS3FileSystem
     }
   }
 
-  private static AWSCredentialsProvider getAwsCredentialsProvider(PrestoS3FileSystem fs)
+  private static AWSCredentialsProvider getAwsCredentialsProvider(TajoS3FileSystem fs)
   {
     return getFieldValue(fs.getS3Client(), "awsCredentialsProvider", AWSCredentialsProvider.class);
   }
