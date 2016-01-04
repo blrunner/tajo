@@ -18,9 +18,6 @@
 
 package org.apache.tajo.storage.s3;
 
-import net.minidev.json.JSONObject;
-
-import org.apache.tajo.storage.*;
 import java.net.URI;
 
 import org.apache.tajo.storage.FileTablespace;
