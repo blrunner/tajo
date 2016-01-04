@@ -22,7 +22,7 @@
 <configuration>
   <property>
     <name>fs.s3.impl</name>
-    <value>org.apache.tajo.storage.s3.SmallBlockS3FileSystem</value>
+    <value>org.apache.tajo.storage.s3.MockS3FileSystem</value>
   </property>
 
   <!-- Storage Manager Configuration -->

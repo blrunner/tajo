@@ -20,11 +20,6 @@
   -->
 
 <configuration>
-  <property>
-    <name>fs.s3.impl</name>
-    <value>org.apache.tajo.storage.s3.SmallBlockS3FileSystem</value>
-  </property>
-
   <!-- Storage Manager Configuration -->
   <property>
     <name>tajo.storage.manager.hdfs.class</name>
