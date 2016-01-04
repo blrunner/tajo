@@ -71,6 +71,9 @@ import static org.apache.hadoop.fs.s3a.Constants.MIN_MULTIPART_THRESHOLD;
 import static org.apache.http.HttpStatus.*;
 import static org.apache.tajo.storage.s3.RetryDriver.retry;
 
+/**
+ * Borrow from com.facebook.presto.hive.PrestoS3FileSystem
+ */
 public class TajoS3FileSystem extends FileSystem {
   private static final Log log = LogFactory.getLog(TajoS3FileSystem.class);
 

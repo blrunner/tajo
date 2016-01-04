@@ -16,6 +16,9 @@ package org.apache.tajo.storage.s3;
 
 import org.apache.hadoop.fs.FileStatus;
 
+/**
+ * Borrow from com.facebook.presto.hadoop.HadoopFileStatus
+ */
 public final class HadoopFileStatus {
   private HadoopFileStatus() {
   }

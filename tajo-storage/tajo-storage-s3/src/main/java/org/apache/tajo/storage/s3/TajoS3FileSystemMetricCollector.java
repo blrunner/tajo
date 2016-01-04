@@ -24,8 +24,10 @@ import static com.amazonaws.util.AWSRequestMetrics.Field;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-public class TajoS3FileSystemMetricCollector
-        extends RequestMetricCollector
+/**
+ * Borrow from com.facebook.presto.hive.TajoS3FileSystemMetricCollector
+ */
+public class TajoS3FileSystemMetricCollector extends RequestMetricCollector
 {
     private final TajoS3FileSystemStats stats;
 

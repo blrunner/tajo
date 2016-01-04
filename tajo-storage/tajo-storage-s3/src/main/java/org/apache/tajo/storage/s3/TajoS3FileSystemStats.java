@@ -25,6 +25,9 @@ import java.net.SocketTimeoutException;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
+/**
+ * Borrow from com.facebook.presto.hive.TajoS3FileSystemStats
+ */
 public class TajoS3FileSystemStats
 {
     private final CounterStat activeConnections = new CounterStat();

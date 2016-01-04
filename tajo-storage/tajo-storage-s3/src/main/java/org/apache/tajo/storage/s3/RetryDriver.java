@@ -29,6 +29,9 @@ import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
 
+/**
+ * Borrow from com.facebook.presto.hive.RetryDriver
+ */
 public class RetryDriver
 {
   private static final Log log = LogFactory.getLog(RetryDriver.class);
@@ -85,22 +88,27 @@ public class RetryDriver
 
   public final RetryDriver maxAttempts(int maxAttempts)
   {
-    return new RetryDriver(maxAttempts, minSleepTime, maxSleepTime, scaleFactor, maxRetryTime, exceptionMapper, exceptionWhiteList, retryRunnable);
+    return new RetryDriver(maxAttempts, minSleepTime, maxSleepTime, scaleFactor, maxRetryTime, exceptionMapper,
+      exceptionWhiteList, retryRunnable);
   }
 
-  public final RetryDriver exponentialBackoff(Duration minSleepTime, Duration maxSleepTime, Duration maxRetryTime, double scaleFactor)
+  public final RetryDriver exponentialBackoff(Duration minSleepTime, Duration maxSleepTime, Duration maxRetryTime,
+                                              double scaleFactor)
   {
-    return new RetryDriver(maxAttempts, minSleepTime, maxSleepTime, scaleFactor, maxRetryTime, exceptionMapper, exceptionWhiteList, retryRunnable);
+    return new RetryDriver(maxAttempts, minSleepTime, maxSleepTime, scaleFactor, maxRetryTime, exceptionMapper,
+      exceptionWhiteList, retryRunnable);
   }
 
   public final RetryDriver onRetry(Runnable retryRunnable)
   {
-    return new RetryDriver(maxAttempts, minSleepTime, maxSleepTime, scaleFactor, maxRetryTime, exceptionMapper, exceptionWhiteList, Optional.ofNullable(retryRunnable));
+    return new RetryDriver(maxAttempts, minSleepTime, maxSleepTime, scaleFactor, maxRetryTime, exceptionMapper,
+      exceptionWhiteList, Optional.ofNullable(retryRunnable));
   }
 
   public final RetryDriver exceptionMapper(Function<Exception, Exception> exceptionMapper)
   {
-    return new RetryDriver(maxAttempts, minSleepTime, maxSleepTime, scaleFactor, maxRetryTime, exceptionMapper, exceptionWhiteList, retryRunnable);
+    return new RetryDriver(maxAttempts, minSleepTime, maxSleepTime, scaleFactor, maxRetryTime, exceptionMapper,
+      exceptionWhiteList, retryRunnable);
   }
 
   @SafeVarargs
@@ -112,7 +120,8 @@ public class RetryDriver
       .addAll(Arrays.asList(classes))
       .build();
 
-    return new RetryDriver(maxAttempts, minSleepTime, maxSleepTime, scaleFactor, maxRetryTime, exceptionMapper, exceptions, retryRunnable);
+    return new RetryDriver(maxAttempts, minSleepTime, maxSleepTime, scaleFactor, maxRetryTime, exceptionMapper,
+      exceptions, retryRunnable);
   }
 
   public RetryDriver stopOnIllegalExceptions()
@@ -151,7 +160,8 @@ public class RetryDriver
         log.debug("Failed on executing " + callableName + " with attempt " + attempt +
           " , will retry. Exception: " + e.getMessage());
 
-        int delayInMs = (int) Math.min(minSleepTime.toMillis() * Math.pow(scaleFactor, attempt - 1), maxSleepTime.toMillis());
+        int delayInMs = (int) Math.min(minSleepTime.toMillis() * Math.pow(scaleFactor, attempt - 1),
+          maxSleepTime.toMillis());
         TimeUnit.MILLISECONDS.sleep(delayInMs);
       }
     }

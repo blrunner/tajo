@@ -18,7 +18,6 @@
 
 package org.apache.tajo.storage.s3;
 
-
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.InstanceProfileCredentialsProvider;
 import com.amazonaws.internal.StaticCredentialsProvider;
@@ -41,6 +40,9 @@ import static org.apache.http.HttpStatus.SC_NOT_FOUND;
 import static org.apache.http.HttpStatus.SC_REQUESTED_RANGE_NOT_SATISFIABLE;
 import static org.testng.Assert.assertEquals;
 
+/**
+ * Borrow from com.facebook.presto.hive.TestTajoS3FileSystem
+ */
 public class TestTajoS3FileSystem
 {
   @Test

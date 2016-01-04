@@ -237,7 +237,6 @@ public class TajoConf extends Configuration {
     HIVEUSEEXPLICITRCFILEHEADER("tajo.exec.rcfile.use.explicit.header", true, Validators.bool()),
 
     // S3TableSpace Configuration --------------------------------------------------
-
     S3_MAX_CLIENT_RETRIES("tajo.s3.max-client-retries", 3),
     S3_MAX_BACKOFF_TIME("tajo.s3.max-backoff-time", "10m"),
     S3_MAX_RETRY_TIME("tajo.s3.max-retry-time", "10m"),
