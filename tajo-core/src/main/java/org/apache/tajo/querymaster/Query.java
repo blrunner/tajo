@@ -480,19 +480,26 @@ public class Query implements EventHandler<QueryEvent> {
     }
 
     private QueryState finalizeQuery(Query query, QueryCompletedEvent event) {
+LOG.info("### 100 ###");
       Stage lastStage = query.getStage(event.getExecutionBlockId());
 
       try {
 
+        LOG.info("### 110 ###");
         LogicalRootNode rootNode = lastStage.getMasterPlan().getLogicalPlan().getRootBlock().getRoot();
+        LOG.info("### 120 ###");
         CatalogService catalog = lastStage.getContext().getQueryMasterContext().getWorkerContext().getCatalog();
+        LOG.info("### 130 ###");
         TableDesc tableDesc =  PlannerUtil.getTableDesc(catalog, rootNode.getChild());
+        LOG.info("### 140 ###");
 
         QueryContext queryContext = query.context.getQueryContext();
+        LOG.info("### 150 ###");
 
         // If there is not tabledesc, it is a select query without insert or ctas.
         // In this case, we should use default tablespace.
         Tablespace space = TablespaceManager.get(queryContext.get(QueryVars.OUTPUT_TABLE_URI, ""));
+        LOG.info("### 160 ###");
 
         Path finalOutputDir = space.commitTable(
             query.context.getQueryContext(),
@@ -500,14 +507,22 @@ public class Query implements EventHandler<QueryEvent> {
             lastStage.getMasterPlan().getLogicalPlan(),
             lastStage.getSchema(),
             tableDesc);
+        LOG.info("### 170 ###");
 
         QueryHookExecutor hookExecutor = new QueryHookExecutor(query.context.getQueryMasterContext());
+        LOG.info("### 180 ### queryId:" + query.getId().toString()
+        + ", ebId:" + event.getExecutionBlockId().toString()
+        + ", outputDir:" + finalOutputDir.toString());
         hookExecutor.execute(query.context.getQueryContext(), query, event.getExecutionBlockId(), finalOutputDir);
+        LOG.info("### 190 ###");
 
         // Add dynamic partitions to catalog for partition table.
         if (queryContext.hasOutputTableUri() && queryContext.hasPartition()) {
+          LOG.info("### 200 ###");
           List<PartitionDescProto> partitions = query.getPartitions();
+          LOG.info("### 210 ###");
           if (partitions != null) {
+            LOG.info("### 220 ###");
             // Set contents length and file count to PartitionDescProto by listing final output directories.
             List<PartitionDescProto> finalPartitions = getPartitionsWithContentsSummary(query.systemConf,
               finalOutputDir, partitions);
@@ -530,11 +545,14 @@ public class Query implements EventHandler<QueryEvent> {
           }
           query.clearPartitions();
         }
+        LOG.info("### 230 ###");
       } catch (Throwable e) {
+        LOG.info("### 240 ###");
         query.eventHandler.handle(new QueryDiagnosticsUpdateEvent(query.id, ExceptionUtils.getStackTrace(e)));
         return QueryState.QUERY_ERROR;
       }
 
+      LOG.info("### 100 ###");
       return QueryState.QUERY_SUCCEEDED;
     }
 
@@ -574,9 +592,13 @@ public class Query implements EventHandler<QueryEvent> {
       public void execute(QueryContext queryContext, Query query,
                           ExecutionBlockId finalExecBlockId,
                           Path finalOutputDir) throws Exception {
+        LOG.info("### 10 ### hookListSize:" + hookList.size());
         for (QueryHook hook : hookList) {
+          LOG.info("### 11 ###");
           if (hook.isEligible(queryContext, query, finalExecBlockId, finalOutputDir)) {
+            LOG.info("### 12 ###");
             hook.execute(context, queryContext, query, finalExecBlockId, finalOutputDir);
+            LOG.info("### 13 ###");
           }
         }
       }
