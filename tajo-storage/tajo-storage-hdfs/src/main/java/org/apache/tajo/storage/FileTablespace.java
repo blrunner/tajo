@@ -801,11 +801,6 @@ public class FileTablespace extends Tablespace {
 
       try {
         if (queryContext.getBool(QueryVars.OUTPUT_OVERWRITE, false)) { // INSERT OVERWRITE INTO
-          // It moves the original table into the temporary location.
-          // Then it moves the new result table into the original table location.
-          // Upon failed, it recovers the original table if possible.
-          boolean movedToOldTable = false;
-          boolean committed = false;
           Path oldTableDir = new Path(stagingDir, TajoConstants.INSERT_OVERWIRTE_OLD_TABLE_NAME);
 
           // When inserting empty data into a partitioned table, check if keep existing data need to be remove or not.
@@ -813,7 +808,7 @@ public class FileTablespace extends Tablespace {
           if (hasPartition && !overwriteEnabled) {
             commitInsertOverwriteWihProtectablePartition(stagingResultDir, finalOutputDir, oldTableDir);
           } else { 
-            commitInsertOverwrite(stagingResultDir, finalOutputDir, oldTableDir, movedToOldTable, committed);
+            commitInsertOverwrite(stagingResultDir, finalOutputDir, oldTableDir);
           }
         } else {
           String queryType = queryContext.get(QueryVars.COMMAND_TYPE);
@@ -889,8 +884,13 @@ public class FileTablespace extends Tablespace {
     }
   }
 
-  private void commitInsertOverwrite(Path stagingResultDir, Path finalOutputDir, Path oldTableDir,
-                                                  boolean movedToOldTable, boolean committed) throws IOException {
+  private void commitInsertOverwrite(Path stagingResultDir, Path finalOutputDir, Path oldTableDir) throws IOException {
+    // It moves the original table into the temporary location.
+    // Then it moves the new result table into the original table location.
+    // Upon failed, it recovers the original table if possible.
+    boolean movedToOldTable = false;
+    boolean committed = false;
+
     try {
       // if the final output dir exists, move all contents to the temporary table dir.
       // Otherwise, just make the final output dir. As a result, the final output dir will be empty.
