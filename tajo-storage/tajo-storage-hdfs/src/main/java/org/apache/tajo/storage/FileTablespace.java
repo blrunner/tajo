@@ -798,6 +798,7 @@ public class FileTablespace extends Tablespace {
       finalOutputDir = new Path(queryContext.get(QueryVars.OUTPUT_TABLE_URI));
 
       boolean hasPartition = !queryContext.get(QueryVars.OUTPUT_PARTITIONS, "").isEmpty() ? true : false;
+
       try {
         if (queryContext.getBool(QueryVars.OUTPUT_OVERWRITE, false)) { // INSERT OVERWRITE INTO
           // It moves the original table into the temporary location.
@@ -809,20 +810,20 @@ public class FileTablespace extends Tablespace {
 
           // When inserting empty data into a partitioned table, check if keep existing data need to be remove or not.
           boolean overwriteEnabled = queryContext.getBool(SessionVars.PARTITION_NO_RESULT_OVERWRITE_ENABLED);
-
-          // If existing data doesn't need to keep, check if there are some files.
           if (hasPartition && !overwriteEnabled) {
-            insertOverwritePartitionedTable(stagingResultDir, finalOutputDir, oldTableDir);
-          } else { // no partition
-            insertOverwriteNonPartitionedTable(stagingResultDir, finalOutputDir, oldTableDir, movedToOldTable,
-              committed);
+            commitInsertOverwriteWihProtectablePartition(stagingResultDir, finalOutputDir, oldTableDir);
+          } else { 
+            commitInsertOverwrite(stagingResultDir, finalOutputDir, oldTableDir, movedToOldTable, committed);
           }
         } else {
           String queryType = queryContext.get(QueryVars.COMMAND_TYPE);
-          if (queryType != null && queryType.equals(NodeType.INSERT.name())) { // INSERT INTO an existing table
-            insertIntoTable(stagingResultDir, finalOutputDir, hasPartition, changeFileSeq);
-          } else { // CREATE TABLE AS SELECT (CTAS)
-            createTableAsSelect(stagingResultDir, finalOutputDir);
+          Preconditions.checkNotNull(queryContext);
+          if (queryType.equals(NodeType.INSERT.name())) { // INSERT INTO an existing table
+            commitInsert(stagingResultDir, finalOutputDir, hasPartition, changeFileSeq);
+          } else if (queryType.equals(NodeType.CREATE_TABLE.name())){ // CREATE TABLE AS SELECT (CTAS)
+            commitCreate(stagingResultDir, finalOutputDir);
+          } else {
+            throw new IOException("Cannot handle query type:" + queryType);
           }
         }
         // remove the staging directory if the final output dir is given.
@@ -838,8 +839,8 @@ public class FileTablespace extends Tablespace {
     return finalOutputDir;
   }
 
-  private void insertOverwritePartitionedTable(Path stagingResultDir, Path finalOutputDir, Path oldTableDir) throws
-    IOException {
+  private void commitInsertOverwriteWihProtectablePartition(Path stagingResultDir, Path finalOutputDir,
+                                                            Path oldTableDir) throws IOException {
     // This is a map for existing non-leaf directory to rename. A key is current directory and a value is
     // renaming directory.
     Map<Path, Path> renameDirs = new HashMap<>();
@@ -888,7 +889,7 @@ public class FileTablespace extends Tablespace {
     }
   }
 
-  private void insertOverwriteNonPartitionedTable(Path stagingResultDir, Path finalOutputDir, Path oldTableDir,
+  private void commitInsertOverwrite(Path stagingResultDir, Path finalOutputDir, Path oldTableDir,
                                                   boolean movedToOldTable, boolean committed) throws IOException {
     try {
       // if the final output dir exists, move all contents to the temporary table dir.
@@ -931,7 +932,7 @@ public class FileTablespace extends Tablespace {
     }
   }
 
-  private void insertIntoTable(Path stagingResultDir, Path finalOutputDir, boolean hasPartition, boolean changeFileSeq)
+  private void commitInsert(Path stagingResultDir, Path finalOutputDir, boolean hasPartition, boolean changeFileSeq)
     throws IOException {
     NumberFormat fmt = NumberFormat.getInstance();
     fmt.setGroupingUsed(false);
@@ -964,7 +965,7 @@ public class FileTablespace extends Tablespace {
     }
   }
 
-  private void createTableAsSelect(Path stagingResultDir, Path finalOutputDir) throws IOException {
+  private void commitCreate(Path stagingResultDir, Path finalOutputDir) throws IOException {
     if (fs.exists(finalOutputDir)) {
       for (FileStatus status : fs.listStatus(stagingResultDir)) {
         fs.rename(status.getPath(), finalOutputDir);
