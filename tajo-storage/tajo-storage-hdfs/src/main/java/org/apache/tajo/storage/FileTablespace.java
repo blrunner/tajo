@@ -806,14 +806,12 @@ public class FileTablespace extends Tablespace {
           boolean movedToOldTable = false;
           boolean committed = false;
           Path oldTableDir = new Path(stagingDir, TajoConstants.INSERT_OVERWIRTE_OLD_TABLE_NAME);
-          ContentSummary summary = fs.getContentSummary(stagingResultDir);
 
           // When inserting empty data into a partitioned table, check if keep existing data need to be remove or not.
           boolean overwriteEnabled = queryContext.getBool(SessionVars.PARTITION_NO_RESULT_OVERWRITE_ENABLED);
 
           // If existing data doesn't need to keep, check if there are some files.
-          if ( (!queryContext.get(QueryVars.OUTPUT_PARTITIONS, "").isEmpty())
-            && (!overwriteEnabled || (overwriteEnabled && summary.getFileCount() > 0L))) {
+          if (!queryContext.get(QueryVars.OUTPUT_PARTITIONS, "").isEmpty() && !overwriteEnabled) {
             // This is a map for existing non-leaf directory to rename. A key is current directory and a value is
             // renaming directory.
             Map<Path, Path> renameDirs = new HashMap<>();
