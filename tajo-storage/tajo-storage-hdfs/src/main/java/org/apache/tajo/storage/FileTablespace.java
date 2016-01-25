@@ -806,7 +806,7 @@ public class FileTablespace extends Tablespace {
           // When inserting empty data into a partitioned table, check if keep existing data need to be remove or not.
           boolean overwriteEnabled = queryContext.getBool(SessionVars.PARTITION_NO_RESULT_OVERWRITE_ENABLED);
           if (hasPartition && !overwriteEnabled) {
-            commitInsertOverwriteWihProtectablePartition(stagingResultDir, finalOutputDir, oldTableDir);
+            commitInsertOverwriteWihProtectivePartition(stagingResultDir, finalOutputDir, oldTableDir);
           } else { 
             commitInsertOverwrite(stagingResultDir, finalOutputDir, oldTableDir);
           }
@@ -834,7 +834,7 @@ public class FileTablespace extends Tablespace {
     return finalOutputDir;
   }
 
-  private void commitInsertOverwriteWihProtectablePartition(Path stagingResultDir, Path finalOutputDir,
+  private void commitInsertOverwriteWihProtectivePartition(Path stagingResultDir, Path finalOutputDir,
                                                             Path oldTableDir) throws IOException {
     // This is a map for existing non-leaf directory to rename. A key is current directory and a value is
     // renaming directory.
