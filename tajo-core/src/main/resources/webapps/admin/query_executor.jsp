@@ -64,6 +64,7 @@ var progressTimer = null;
 var queryRunnerId = null;
 var PRINT_LIMIT = 25;
 var SIZE_LIMIT = 104857600; // Limit size of displayed results.(Bytes)
+var ROW_LIMIT = 3000000;
 var pageNum = 0;
 var pageCount, storedColumns, storedData;
 
@@ -87,6 +88,9 @@ function runQuery() {
   } else if(Math.ceil(Number($("#sizeLimit").val())) > 0) {
     SIZE_LIMIT = Number($("#sizeLimit").val()) * 1024 * 1024;
   }
+  if(Math.ceil(Number($("#rowLimit").val())) > 0) {
+    ROW_LIMIT = Number($("#rowLimit").val()) * 1000 * 1000;
+  }
   if(Math.ceil(Number($("#printLimit").val())) > 0) {
     PRINT_LIMIT = Number($("#printLimit").val());
   }
@@ -101,7 +105,7 @@ function runQuery() {
   $.ajax({
     type: "POST",
     url: "query_exec",
-    data: { action: "runQuery", query: query, prevQueryId: queryRunnerId, limitSize:SIZE_LIMIT, database: sbox.options[sbox.selectedIndex].text }
+    data: { action: "runQuery", query: query, prevQueryId: queryRunnerId, limitSize:SIZE_LIMIT, limitRow:ROW_LIMIT, database: sbox.options[sbox.selectedIndex].text }
   })
   .done(function(msg) {
     var resultJson = $.parseJSON(msg);
@@ -147,7 +151,7 @@ function clearTimer() {
 
 function getQueryStatusHtml(status) {
   if(status.success == "false") {
-    return "<div style='color:#ff0000; margin-top: 5px'>" + status.errorMessage + "</div>";
+    return "<div style='color:#ff0000; margin-top: 5px'><pre>" + status.errorMessage + "</pre></div>";
   } else {
     var statusHtml = "<div style='margin-top: 5px'>Start: " + status.startTime + "</div>";
     statusHtml += "<div style='margin-top: 5px'>Finish: " + status.finishTime + "</div>";
@@ -173,11 +177,11 @@ function getResult() {
     $("#queryResult").html("");
     var resultColumns = resultJson.resultColumns;
     var resultData = resultJson.resultData;
-	
+
     storedColumns = resultColumns;
-    storedData = resultData; 
+    storedData = resultData;
     pageCount = Math.ceil((storedData.length / PRINT_LIMIT)) - 1 ;
-	
+
     var resultTable = "<table width='100%' class='border_table'><tr>";
     for(var i = 0; i < resultColumns.length; i++) {
       resultTable += "<th>" + resultColumns[i] + "</th>";
@@ -188,7 +192,7 @@ function getResult() {
       for(var j = 0; j < resultData[i].length; j++) {
         resultTable += "<td>" + resultData[i][j] + "</td>";
       }
-      resultTable += "</tr>";	  
+      resultTable += "</tr>";
       if(++printedLine >= PRINT_LIMIT) break;
     }
     resultTable += "</table>";
@@ -213,7 +217,7 @@ function getCSV() {
   var colCount = storedColumns.length;
   for(var colIndex = 0; colIndex < colCount; colIndex++) {
     if(colIndex == 0) {
-      csvData += storedColumns[colIndex];  
+      csvData += storedColumns[colIndex];
     } else {
       csvData += "," + storedColumns[colIndex];
     }
@@ -226,34 +230,34 @@ function getCSV() {
       } else {
         csvData += "," + storedData[rowIndex][colIndex];
       }
-    }   
+    }
     csvData += "\n";
   }
   $("#csvData").val(csvData);
-  $("#dataForm").submit();  
+  $("#dataForm").submit();
 }
 
 function getNext() {
-	var printedLine = 0;	
-	if(pageCount > pageNum) {
-		pageNum++;
-		document.getElementById("selectPage").options.selectedIndex = pageNum;
-	}else {
-		alert("There's no next page.");
-		return;
-	}
-	getPage();
+  var printedLine = 0;
+  if(pageCount > pageNum) {
+    pageNum++;
+    document.getElementById("selectPage").options.selectedIndex = pageNum;
+  } else {
+    alert("There's no next page.");
+    return;
+  }
+  getPage();
 }
 
 function getPrev() {
-	if(pageNum > 0  ) {
-		pageNum--;
-		document.getElementById("selectPage").options.selectedIndex = pageNum;
-	} else {
-		alert("There's no previous page.");
-		return;
-	}
-	getPage();
+  if(pageNum > 0  ) {
+    pageNum--;
+    document.getElementById("selectPage").options.selectedIndex = pageNum;
+  } else {
+    alert("There's no previous page.");
+    return;
+  }
+  getPage();
 }
 
 function getSelectedPage() {
@@ -295,20 +299,22 @@ function getPage() {
   <h2>Tajo Master: <%=masterLabel%> <%=activeLabel%></h2>
   <hr/>
   <h3>Query</h3>
-  Database :  
+  Database :
   <select id="selectDatabase" name="database" width="190" style="width: 190px">
     <%
-	for (String databaseName : master.getCatalog().getAllDatabaseNames()) {
-	%>
-	  <option value="<%=databaseName%>" <%= (databaseName.equals("default"))?"selected":"" %> ><%=databaseName%></option>
-	<%
-	}
-	%>
+    for (String databaseName : master.getCatalog().getAllDatabaseNames()) {
+    %>
+      <option value="<%=databaseName%>" <%= (databaseName.equals("default"))?"selected":"" %> ><%=databaseName%></option>
+    <%
+    }
+    %>
   </select>
   <p />
 <textarea id="query" style="width:800px; height:250px; font-family:Tahoma; font-size:12px;"></textarea>
   <p />
   Limit : <input id="sizeLimit" type="text" value="10" style="width:30px; text-align:center;" /> MB
+  <p />
+  Limit Rows : <input id="rowLimit" type="text" value="3" style="width:30px; text-align:center;" /> M
   <p />
   Rows/Page : <input id="printLimit" type="text" value="25" style="width:30px; text-align:center;" />
   <hr />

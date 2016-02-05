@@ -52,7 +52,6 @@ import org.apache.tajo.storage.fragment.Fragment;
 import org.apache.tajo.util.NetUtils;
 import org.apache.tajo.util.RpcParameterFactory;
 import org.apache.tajo.util.TUtil;
-import org.apache.tajo.worker.FetchImpl;
 
 import java.net.InetSocketAddress;
 import java.util.*;
@@ -98,7 +97,7 @@ public class DefaultTaskScheduler extends AbstractTaskScheduler {
   @Override
   public void init(Configuration conf) {
     tajoConf = TUtil.checkTypeAndGet(conf, TajoConf.class);
-    rpcParams = RpcParameterFactory.get(new TajoConf());
+    rpcParams = RpcParameterFactory.get(tajoConf);
 
     scheduledRequests = new ScheduledRequests();
     minTaskMemory = tajoConf.getIntVar(TajoConf.ConfVars.TASK_RESOURCE_MINIMUM_MEMORY);
@@ -117,11 +116,11 @@ public class DefaultTaskScheduler extends AbstractTaskScheduler {
               break;
             } else {
               LOG.fatal(e.getMessage(), e);
-              stage.abort(StageState.ERROR);
+              stage.abort(StageState.ERROR, e);
             }
           } catch (Throwable e) {
             LOG.fatal(e.getMessage(), e);
-            stage.abort(StageState.ERROR);
+            stage.abort(StageState.ERROR, e);
             break;
           }
         }
@@ -134,7 +133,7 @@ public class DefaultTaskScheduler extends AbstractTaskScheduler {
   @Override
   public void start() {
     LOG.info("Start TaskScheduler");
-    maximumRequestContainer = tajoConf.getInt(REQUEST_MAX_NUM, stage.getContext().getWorkerMap().size() * 2);
+    maximumRequestContainer = tajoConf.getInt(REQUEST_MAX_NUM, stage.getContext().getWorkerMap().size());
 
     if (isLeaf) {
       candidateWorkers.addAll(getWorkerIds(getLeafTaskHosts()));
@@ -233,11 +232,11 @@ public class DefaultTaskScheduler extends AbstractTaskScheduler {
         }
       } else if (event instanceof FetchScheduleEvent) {
         FetchScheduleEvent castEvent = (FetchScheduleEvent) event;
-        Map<String, List<FetchImpl>> fetches = castEvent.getFetches();
+        Map<String, List<FetchProto>> fetches = castEvent.getFetches();
         TaskAttemptScheduleContext taskScheduleContext = new TaskAttemptScheduleContext();
         Task task = Stage.newEmptyTask(context, taskScheduleContext, stage, nextTaskId++);
         scheduledObjectNum++;
-        for (Entry<String, List<FetchImpl>> eachFetch : fetches.entrySet()) {
+        for (Entry<String, List<FetchProto>> eachFetch : fetches.entrySet()) {
           task.addFetches(eachFetch.getKey(), eachFetch.getValue());
           task.addFragment(fragmentsForNonLeafTask[0], true);
           if (fragmentsForNonLeafTask[1] != null) {
@@ -983,11 +982,11 @@ public class DefaultTaskScheduler extends AbstractTaskScheduler {
           if (checkIfInterQuery(stage.getMasterPlan(), stage.getBlock())) {
             taskAssign.setInterQuery();
           }
-          for(Map.Entry<String, Set<FetchImpl>> entry: task.getFetchMap().entrySet()) {
-            Collection<FetchImpl> fetches = entry.getValue();
+          for(Map.Entry<String, Set<FetchProto>> entry: task.getFetchMap().entrySet()) {
+            Collection<FetchProto> fetches = entry.getValue();
             if (fetches != null) {
-              for (FetchImpl fetch : fetches) {
-                taskAssign.addFetch(entry.getKey(), fetch);
+              for (FetchProto fetch : fetches) {
+                taskAssign.addFetch(fetch);
               }
             }
           }

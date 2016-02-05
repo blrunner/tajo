@@ -18,10 +18,11 @@
 
 package org.apache.tajo.storage.s3;
 
-import net.minidev.json.JSONObject;
-
-import org.apache.tajo.storage.*;
 import java.net.URI;
+
+import org.apache.tajo.storage.FileTablespace;
+
+import net.minidev.json.JSONObject;
 
 public class S3TableSpace extends FileTablespace {
   public S3TableSpace(String spaceName, URI uri, JSONObject config) {

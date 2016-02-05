@@ -44,13 +44,14 @@ import org.apache.tajo.engine.planner.global.ExecutionBlockCursor;
 import org.apache.tajo.engine.planner.global.ExecutionQueue;
 import org.apache.tajo.engine.planner.global.MasterPlan;
 import org.apache.tajo.engine.query.QueryContext;
+import org.apache.tajo.error.Errors.SerializedException;
+import org.apache.tajo.exception.ErrorUtil;
 import org.apache.tajo.master.event.*;
 import org.apache.tajo.plan.logical.*;
 import org.apache.tajo.plan.util.PlannerUtil;
 import org.apache.tajo.storage.StorageConstants;
 import org.apache.tajo.storage.Tablespace;
 import org.apache.tajo.storage.TablespaceManager;
-import org.apache.tajo.util.TUtil;
 import org.apache.tajo.util.history.QueryHistory;
 import org.apache.tajo.util.history.StageHistory;
 
@@ -80,11 +81,12 @@ public class Query implements EventHandler<QueryEvent> {
   private long startTime;
   private long finishTime;
   private TableDesc resultDesc;
-  private int completedStagesCount = 0;
-  private int succeededStagesCount = 0;
-  private int killedStagesCount = 0;
-  private int failedStagesCount = 0;
-  private int erroredStagesCount = 0;
+  private volatile int completedStagesCount = 0;
+  private volatile int succeededStagesCount = 0;
+  private volatile int killedStagesCount = 0;
+  private volatile int failedStagesCount = 0;
+  private volatile int erroredStagesCount = 0;
+  private volatile SerializedException failureReason;
   private final List<String> diagnostics = new ArrayList<>();
 
   // Internal Variables
@@ -265,8 +267,8 @@ public class Query implements EventHandler<QueryEvent> {
       float totalProgress = 0.0f;
       float proportion = 1.0f / (float)(getExecutionBlockCursor().size() - 1); // minus one is due to
 
-      for (int i = 0; i < subProgresses.length; i++) {
-        totalProgress += subProgresses[i] * proportion;
+      for (float subProgress : subProgresses) {
+        totalProgress += subProgress * proportion;
       }
 
       return totalProgress;
@@ -340,6 +342,10 @@ public class Query implements EventHandler<QueryEvent> {
     for(Stage eachStage : getStages()) {
       eachStage.clearPartitions();
     }
+  }
+
+  public SerializedException getFailureReason() {
+    return failureReason;
   }
 
   public List<String> getDiagnostics() {
@@ -531,6 +537,8 @@ public class Query implements EventHandler<QueryEvent> {
           query.clearPartitions();
         }
       } catch (Throwable e) {
+        LOG.fatal(e.getMessage(), e);
+        query.failureReason = ErrorUtil.convertException(e);
         query.eventHandler.handle(new QueryDiagnosticsUpdateEvent(query.id, ExceptionUtils.getStackTrace(e)));
         return QueryState.QUERY_ERROR;
       }
@@ -540,7 +548,7 @@ public class Query implements EventHandler<QueryEvent> {
 
     private List<PartitionDescProto> getPartitionsWithContentsSummary(TajoConf conf, Path outputDir,
         List<PartitionDescProto> partitions) throws IOException {
-      List<PartitionDescProto> finalPartitions = TUtil.newList();
+      List<PartitionDescProto> finalPartitions = new ArrayList<>();
 
       FileSystem fileSystem = outputDir.getFileSystem(conf);
       for (PartitionDescProto partition : partitions) {
@@ -560,7 +568,7 @@ public class Query implements EventHandler<QueryEvent> {
     }
 
     private static class QueryHookExecutor {
-      private List<QueryHook> hookList = TUtil.newList();
+      private List<QueryHook> hookList = new ArrayList<>();
       private QueryMaster.QueryMasterContext context;
 
       public QueryHookExecutor(QueryMaster.QueryMasterContext context) {
@@ -792,8 +800,10 @@ public class Query implements EventHandler<QueryEvent> {
           query.killedStagesCount++;
         } else if (castEvent.getState() == StageState.FAILED) {
           query.failedStagesCount++;
+          query.failureReason = query.getStage(castEvent.getExecutionBlockId()).getFailureReason();
         } else if (castEvent.getState() == StageState.ERROR) {
           query.erroredStagesCount++;
+          query.failureReason = query.getStage(castEvent.getExecutionBlockId()).getFailureReason();
         } else {
           LOG.error(String.format("Invalid Stage (%s) State %s at %s",
               castEvent.getExecutionBlockId().toString(), castEvent.getState().name(), query.getSynchronizedState().name()));

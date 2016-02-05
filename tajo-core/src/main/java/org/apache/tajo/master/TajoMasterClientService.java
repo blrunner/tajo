@@ -30,6 +30,7 @@ import org.apache.hadoop.service.AbstractService;
 import org.apache.tajo.QueryId;
 import org.apache.tajo.QueryIdFactory;
 import org.apache.tajo.TajoIdProtos;
+import org.apache.tajo.TajoProtos;
 import org.apache.tajo.TajoProtos.QueryState;
 import org.apache.tajo.catalog.*;
 import org.apache.tajo.catalog.partition.PartitionMethodDesc;
@@ -38,10 +39,7 @@ import org.apache.tajo.catalog.proto.CatalogProtos.*;
 import org.apache.tajo.conf.TajoConf;
 import org.apache.tajo.conf.TajoConf.ConfVars;
 import org.apache.tajo.engine.query.QueryContext;
-import org.apache.tajo.exception.QueryNotFoundException;
-import org.apache.tajo.exception.ReturnStateUtil;
-import org.apache.tajo.exception.UnavailableTableLocationException;
-import org.apache.tajo.exception.UndefinedDatabaseException;
+import org.apache.tajo.exception.*;
 import org.apache.tajo.ipc.ClientProtos;
 import org.apache.tajo.ipc.ClientProtos.*;
 import org.apache.tajo.ipc.TajoMasterClientProtocol;
@@ -60,12 +58,10 @@ import org.apache.tajo.session.Session;
 import org.apache.tajo.util.KeyValueSet;
 import org.apache.tajo.util.NetUtils;
 import org.apache.tajo.util.ProtoUtil;
+import org.apache.tajo.util.StringUtils;
 
 import java.net.InetSocketAddress;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 import static org.apache.tajo.TajoConstants.DEFAULT_DATABASE_NAME;
 import static org.apache.tajo.exception.ExceptionUtil.printStackTraceIfError;
@@ -111,7 +107,7 @@ public class TajoMasterClientService extends AbstractService {
   @Override
   public void serviceStop() throws Exception {
     if (server != null) {
-      server.shutdown();
+      server.shutdown(true);
     }
     super.serviceStop();
   }
@@ -507,6 +503,10 @@ public class TajoMasterClientService extends AbstractService {
               builder.setFinishTime(queryInfo.getFinishTime());
             } else {
               builder.setFinishTime(System.currentTimeMillis());
+
+              if(!StringUtils.isEmpty(queryInfo.getLastMessage())) {
+                builder.setErrorMessage(queryInfo.getLastMessage());
+              }
             }
           } else {
             Session session = context.getSessionManager().getSession(request.getSessionId().getId());
@@ -558,13 +558,17 @@ public class TajoMasterClientService extends AbstractService {
             scanNode.init(resultTableDesc);
           }
 
-          if(request.hasCompressCodec()) {
-            queryResultScanner = new NonForwardQueryResultFileScanner(context.getConf(), session.getSessionId(),
-                queryId, scanNode, Integer.MAX_VALUE, request.getCompressCodec());
-          } else {
-            queryResultScanner = new NonForwardQueryResultFileScanner(context.getConf(),
-                session.getSessionId(), queryId, scanNode, Integer.MAX_VALUE);
-          }
+          Optional<TajoProtos.CodecType> codecType =
+              request.hasCompressCodec() ? Optional.of(request.getCompressCodec()) : Optional.empty();
+
+          queryResultScanner = new NonForwardQueryResultFileScanner(
+              context.asyncTaskExecutor(),
+              context.getConf(),
+              session.getSessionId(),
+              queryId,
+              scanNode,
+              Integer.MAX_VALUE,
+              codecType);
 
           queryResultScanner.init();
           session.addNonForwardQueryResultScanner(queryResultScanner);

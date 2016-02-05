@@ -26,6 +26,8 @@ import "TajoIdProtos.proto";
 import "CatalogProtos.proto";
 import "PrimitiveProtos.proto";
 import "Plan.proto";
+import "errors.proto";
+import "stacktrace.proto";
 
 enum ResponseCommand {
   NORMAL = 1;  // ping
@@ -79,15 +81,17 @@ message FetchProto {
   required ExecutionBlockIdProto execution_block_id = 4;
   required int32 partition_id = 5;
   required string name = 6;
-  optional string range_params = 7;
-  optional bool has_next = 8 [default = false];
+  optional bytes range_start = 7;
+  optional bytes range_end = 8;
+  optional bool range_last_inclusive = 9;
+  optional bool has_next = 10 [default = false];
 
   // repeated part
-  repeated int32 task_id = 9 [packed = true];
-  repeated int32 attempt_id = 10 [packed = true];
+  repeated int32 task_id = 11 [packed = true];
+  repeated int32 attempt_id = 12 [packed = true];
 
-  optional int64 offset = 11;
-  optional int64 length = 12;
+  optional int64 offset = 13;
+  optional int64 length = 14;
 }
 
 message TaskStatusProto {
@@ -112,8 +116,7 @@ message TaskCompletionReport {
 
 message TaskFatalErrorReport {
   required TaskAttemptIdProto id = 1;
-  optional string error_message = 2;
-  optional string error_trace = 3;
+  required tajo.error.SerializedException error = 2;
 }
 
 message FailureIntermediateProto {
@@ -213,7 +216,7 @@ message TajoHeartbeatRequest {
   optional QueryIdProto query_id = 2;
   optional QueryState state = 3;
   optional TableDescProto result_desc = 4;
-  optional string status_message = 5;
+  optional tajo.error.SerializedException error = 5;
   optional float query_progress = 6;
 }
 

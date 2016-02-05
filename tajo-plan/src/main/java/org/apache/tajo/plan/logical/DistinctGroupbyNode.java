@@ -117,9 +117,7 @@ public class DistinctGroupbyNode extends UnaryNode implements Projectable, Clone
 
     if (groupingColumns != null) {
       cloneNode.groupingColumns = new Column[groupingColumns.length];
-      for (int i = 0; i < groupingColumns.length; i++) {
-        cloneNode.groupingColumns[i] = groupingColumns[i];
-      }
+      System.arraycopy(groupingColumns, 0, cloneNode.groupingColumns, 0, groupingColumns.length);
     }
 
     if (subGroupbyPlan != null) {
@@ -214,8 +212,8 @@ public class DistinctGroupbyNode extends UnaryNode implements Projectable, Clone
     for (GroupbyNode eachNode: subGroupbyPlan) {
       if (eachNode.hasAggFunctions()) {
         List<AggregationFunctionCallEval> aggrFunctions = eachNode.getAggFunctions();
-        for (int j = 0; j < aggrFunctions.size(); j++) {
-          sb.append(prefix).append(aggrFunctions.get(j));
+        for (AggregationFunctionCallEval aggrFunction : aggrFunctions) {
+          sb.append(prefix).append(aggrFunction);
           prefix = ",";
         }
       }
