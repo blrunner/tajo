@@ -34,29 +34,29 @@ import static org.junit.Assert.assertTrue;
 public class TestS3TableSpace {
   public static final String SPACENAME = "s3_cluster";
   public static final String S3_URI = "s3://tajo-test/";
-
-  @BeforeClass
-  public static void setUp() throws Exception {
-    S3TableSpace tablespace = new S3TableSpace(SPACENAME, URI.create(S3_URI), new JSONObject());
-
-    TajoConf tajoConf = new TajoConf();
-    tajoConf.set("fs.s3.impl", MockS3FileSystem.class.getName());
-    tablespace.init(tajoConf);
-
-    TablespaceManager.addTableSpaceForTest(tablespace);
-  }
-
-  @AfterClass
-  public static void tearDown() throws IOException {
-    TablespaceManager.removeTablespaceForTest(SPACENAME);
-  }
-
-  @Test
-  public void testTablespaceHandler() throws Exception {
-    assertTrue((TablespaceManager.getByName(SPACENAME)) instanceof S3TableSpace);
-    assertEquals(SPACENAME, (TablespaceManager.getByName(SPACENAME).getName()));
-
-    assertTrue((TablespaceManager.get(S3_URI)) instanceof S3TableSpace);
-    assertEquals(S3_URI, TablespaceManager.get(S3_URI).getUri().toASCIIString());
-  }
+//
+//  @BeforeClass
+//  public static void setUp() throws Exception {
+//    S3TableSpace tablespace = new S3TableSpace(SPACENAME, URI.create(S3_URI), new JSONObject());
+//
+//    TajoConf tajoConf = new TajoConf();
+//    tajoConf.set("fs.s3.impl", MockS3FileSystem.class.getName());
+//    tablespace.init(tajoConf);
+//
+//    TablespaceManager.addTableSpaceForTest(tablespace);
+//  }
+//
+//  @AfterClass
+//  public static void tearDown() throws IOException {
+//    TablespaceManager.removeTablespaceForTest(SPACENAME);
+//  }
+//
+//  @Test
+//  public void testTablespaceHandler() throws Exception {
+//    assertTrue((TablespaceManager.getByName(SPACENAME)) instanceof S3TableSpace);
+//    assertEquals(SPACENAME, (TablespaceManager.getByName(SPACENAME).getName()));
+//
+//    assertTrue((TablespaceManager.get(S3_URI)) instanceof S3TableSpace);
+//    assertEquals(S3_URI, TablespaceManager.get(S3_URI).getUri().toASCIIString());
+//  }
 }
