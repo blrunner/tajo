@@ -44,13 +44,14 @@ import org.apache.tajo.engine.planner.global.ExecutionBlockCursor;
 import org.apache.tajo.engine.planner.global.ExecutionQueue;
 import org.apache.tajo.engine.planner.global.MasterPlan;
 import org.apache.tajo.engine.query.QueryContext;
+import org.apache.tajo.error.Errors.SerializedException;
+import org.apache.tajo.exception.ErrorUtil;
 import org.apache.tajo.master.event.*;
 import org.apache.tajo.plan.logical.*;
 import org.apache.tajo.plan.util.PlannerUtil;
 import org.apache.tajo.storage.StorageConstants;
 import org.apache.tajo.storage.Tablespace;
 import org.apache.tajo.storage.TablespaceManager;
-import org.apache.tajo.util.TUtil;
 import org.apache.tajo.util.history.QueryHistory;
 import org.apache.tajo.util.history.StageHistory;
 
@@ -80,11 +81,12 @@ public class Query implements EventHandler<QueryEvent> {
   private long startTime;
   private long finishTime;
   private TableDesc resultDesc;
-  private int completedStagesCount = 0;
-  private int succeededStagesCount = 0;
-  private int killedStagesCount = 0;
-  private int failedStagesCount = 0;
-  private int erroredStagesCount = 0;
+  private volatile int completedStagesCount = 0;
+  private volatile int succeededStagesCount = 0;
+  private volatile int killedStagesCount = 0;
+  private volatile int failedStagesCount = 0;
+  private volatile int erroredStagesCount = 0;
+  private volatile SerializedException failureReason;
   private final List<String> diagnostics = new ArrayList<>();
 
   // Internal Variables
@@ -265,8 +267,8 @@ public class Query implements EventHandler<QueryEvent> {
       float totalProgress = 0.0f;
       float proportion = 1.0f / (float)(getExecutionBlockCursor().size() - 1); // minus one is due to
 
-      for (int i = 0; i < subProgresses.length; i++) {
-        totalProgress += subProgresses[i] * proportion;
+      for (float subProgress : subProgresses) {
+        totalProgress += subProgress * proportion;
       }
 
       return totalProgress;
@@ -340,6 +342,10 @@ public class Query implements EventHandler<QueryEvent> {
     for(Stage eachStage : getStages()) {
       eachStage.clearPartitions();
     }
+  }
+
+  public SerializedException getFailureReason() {
+    return failureReason;
   }
 
   public List<String> getDiagnostics() {
@@ -480,26 +486,19 @@ public class Query implements EventHandler<QueryEvent> {
     }
 
     private QueryState finalizeQuery(Query query, QueryCompletedEvent event) {
-LOG.info("### 100 ###");
       Stage lastStage = query.getStage(event.getExecutionBlockId());
 
       try {
 
-        LOG.info("### 110 ###");
         LogicalRootNode rootNode = lastStage.getMasterPlan().getLogicalPlan().getRootBlock().getRoot();
-        LOG.info("### 120 ###");
         CatalogService catalog = lastStage.getContext().getQueryMasterContext().getWorkerContext().getCatalog();
-        LOG.info("### 130 ###");
         TableDesc tableDesc =  PlannerUtil.getTableDesc(catalog, rootNode.getChild());
-        LOG.info("### 140 ###");
 
         QueryContext queryContext = query.context.getQueryContext();
-        LOG.info("### 150 ###");
 
         // If there is not tabledesc, it is a select query without insert or ctas.
         // In this case, we should use default tablespace.
         Tablespace space = TablespaceManager.get(queryContext.get(QueryVars.OUTPUT_TABLE_URI, ""));
-        LOG.info("### 160 ###");
 
         Path finalOutputDir = space.commitTable(
             query.context.getQueryContext(),
@@ -507,22 +506,14 @@ LOG.info("### 100 ###");
             lastStage.getMasterPlan().getLogicalPlan(),
             lastStage.getSchema(),
             tableDesc);
-        LOG.info("### 170 ###");
 
         QueryHookExecutor hookExecutor = new QueryHookExecutor(query.context.getQueryMasterContext());
-        LOG.info("### 180 ### queryId:" + query.getId().toString()
-        + ", ebId:" + event.getExecutionBlockId().toString()
-        + ", outputDir:" + finalOutputDir.toString());
         hookExecutor.execute(query.context.getQueryContext(), query, event.getExecutionBlockId(), finalOutputDir);
-        LOG.info("### 190 ###");
 
         // Add dynamic partitions to catalog for partition table.
         if (queryContext.hasOutputTableUri() && queryContext.hasPartition()) {
-          LOG.info("### 200 ###");
           List<PartitionDescProto> partitions = query.getPartitions();
-          LOG.info("### 210 ###");
           if (partitions != null) {
-            LOG.info("### 220 ###");
             // Set contents length and file count to PartitionDescProto by listing final output directories.
             List<PartitionDescProto> finalPartitions = getPartitionsWithContentsSummary(query.systemConf,
               finalOutputDir, partitions);
@@ -545,20 +536,19 @@ LOG.info("### 100 ###");
           }
           query.clearPartitions();
         }
-        LOG.info("### 230 ###");
       } catch (Throwable e) {
-        LOG.info("### 240 ###");
+        LOG.fatal(e.getMessage(), e);
+        query.failureReason = ErrorUtil.convertException(e);
         query.eventHandler.handle(new QueryDiagnosticsUpdateEvent(query.id, ExceptionUtils.getStackTrace(e)));
         return QueryState.QUERY_ERROR;
       }
 
-      LOG.info("### 100 ###");
       return QueryState.QUERY_SUCCEEDED;
     }
 
     private List<PartitionDescProto> getPartitionsWithContentsSummary(TajoConf conf, Path outputDir,
         List<PartitionDescProto> partitions) throws IOException {
-      List<PartitionDescProto> finalPartitions = TUtil.newList();
+      List<PartitionDescProto> finalPartitions = new ArrayList<>();
 
       FileSystem fileSystem = outputDir.getFileSystem(conf);
       for (PartitionDescProto partition : partitions) {
@@ -578,7 +568,7 @@ LOG.info("### 100 ###");
     }
 
     private static class QueryHookExecutor {
-      private List<QueryHook> hookList = TUtil.newList();
+      private List<QueryHook> hookList = new ArrayList<>();
       private QueryMaster.QueryMasterContext context;
 
       public QueryHookExecutor(QueryMaster.QueryMasterContext context) {
@@ -592,13 +582,9 @@ LOG.info("### 100 ###");
       public void execute(QueryContext queryContext, Query query,
                           ExecutionBlockId finalExecBlockId,
                           Path finalOutputDir) throws Exception {
-        LOG.info("### 10 ### hookListSize:" + hookList.size());
         for (QueryHook hook : hookList) {
-          LOG.info("### 11 ###");
           if (hook.isEligible(queryContext, query, finalExecBlockId, finalOutputDir)) {
-            LOG.info("### 12 ###");
             hook.execute(context, queryContext, query, finalExecBlockId, finalOutputDir);
-            LOG.info("### 13 ###");
           }
         }
       }
@@ -814,8 +800,10 @@ LOG.info("### 100 ###");
           query.killedStagesCount++;
         } else if (castEvent.getState() == StageState.FAILED) {
           query.failedStagesCount++;
+          query.failureReason = query.getStage(castEvent.getExecutionBlockId()).getFailureReason();
         } else if (castEvent.getState() == StageState.ERROR) {
           query.erroredStagesCount++;
+          query.failureReason = query.getStage(castEvent.getExecutionBlockId()).getFailureReason();
         } else {
           LOG.error(String.format("Invalid Stage (%s) State %s at %s",
               castEvent.getExecutionBlockId().toString(), castEvent.getState().name(), query.getSynchronizedState().name()));

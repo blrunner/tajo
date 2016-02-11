@@ -1,4 +1,4 @@
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -16,27 +16,24 @@
  * limitations under the License.
  */
 
-package org.apache.tajo.storage;
+package org.apache.tajo.master.event;
 
-import org.apache.tajo.exception.UnsupportedException;
-
-import javax.annotation.Nullable;
-import java.net.URI;
+import org.apache.tajo.TaskId;
+import org.apache.tajo.error.Errors.SerializedException;
+import org.apache.tajo.master.TaskState;
 
 /**
- * TablespaceManager interface for loosely coupled usages
+ * Event Class: From Task to Stage
  */
-public interface StorageService {
+public class StageTaskFailedEvent extends StageTaskEvent {
+  private final SerializedException exception;
 
-  /**
-   * Get Table URI
-   *
-   * @param spaceName Tablespace name. If it is null, the default space will be used
-   * @param databaseName Database name
-   * @param tableName Table name
-   * @return Table URI
-   */
-  URI getTableURI(@Nullable String spaceName, String databaseName, String tableName);
+  public StageTaskFailedEvent(TaskId taskId, SerializedException exception) {
+    super(taskId, TaskState.FAILED);
+    this.exception = exception;
+  }
 
-  long getTableVolumn(URI uri) throws UnsupportedException;
+  public SerializedException getException() {
+    return exception;
+  }
 }
