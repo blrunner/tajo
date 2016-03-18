@@ -8,6 +8,14 @@ Release 0.12.0 - unreleased
 
   IMPROVEMENT
 
+    TAJO-2064: Supporting auto-completion in Tsql. (Jongyoung Park via jaehwa)
+
+    TAJO-2043: Implement new data type and schema. (hyunsik)
+
+    TAJO-2090: Bump up orc version to 0.141. (hyunsik)
+
+    TAJO-2089: Improve null handling in UDF. (jinho)
+
     TAJO-2073: Upgrade parquet-mr to 1.8.1. (jinho)
 
     TAJO-2052: Upgrading ORC reader version. (Jongyoung Park via jaehwa)
@@ -106,6 +114,28 @@ Release 0.12.0 - unreleased
 
   BUG FIXES
 
+    TAJO-2100: Add missing cancellation in defaultTaskScheduler when a worker is 
+    no respond. (jinho)
+
+    TAJO-2092: TestStorages.testNullHandlingTypesWithProjection occasionally fail.
+    (jinho)
+
+    TAJO-1793: result row count unmatched for UNION ALL. (jaehwa)
+
+    TAJO-2082: Aggregation on a derived table which includes union can cause 
+    incorrect result. (jihoon)
+
+    TAJO-2081: Incorrect task locality on single node. (jinho)
+
+    TAJO-2080: ArrayIndexOutOfBoundsException when performing aggregation on an 
+    union block. (jihoon)
+
+    TAJO-2078: TestTajoCli.testSelectResultWithNullTrueDeprecated occasionally
+    fails. (Dongkyu Hwangbo via jaehwa)
+
+    TAJO-2077: Join condition causes incorrect result, when a table has an empty 
+    row file. (jinho)
+
     TAJO-2072: The constructor of RegionSizeCalculator changes for HBase 1.0.0 
     compatibility. (Byunghwa Yun via jinho)
 
@@ -191,6 +221,9 @@ Release 0.12.0 - unreleased
     TAJO-1886: Set compilerSourceVM and compilerTargetVM to web.xml. (hyunsik)
 
   TASKS
+
+    TAJO-2088: Change QueryTestCaseBase.runSimpleTests() to return a set of 
+    TajoResultSetBase. (jihoon)
 
     TAJO-2033: Printing out query status with progress bar in TSQL.
     (Dongkyu Hwangbo via jihoon)
