@@ -48,6 +48,7 @@ import org.apache.tajo.storage.Tablespace;
 import org.apache.tajo.storage.TablespaceManager;
 import org.apache.tajo.util.Pair;
 import org.apache.tajo.util.StringUtils;
+import org.apache.tajo.util.TUtil;
 
 import java.io.File;
 import java.io.IOException;
@@ -598,15 +599,26 @@ public class DDLExecutor {
     PartitionMethodDesc partitionDesc = tableDesc.getPartitionMethod();
     Schema partitionColumns = partitionDesc.getExpressionSchema();
 
+    Tablespace tablespace = TablespaceManager.get(tableDesc.getUri());
+    FileTablespace fileTablespace = TUtil.checkTypeAndGet(tablespace, FileTablespace.class);
+    Path [] filteredPaths = null;
+    FileStatus[] statuses = null;
+
     // Get the array of path filter, accepting all partition paths.
     PathFilter[] filters = PartitionedTableRewriter.buildAllAcceptingPathFilters(partitionColumns);
 
-    // loop from one to the number of partition columns
-    Path [] filteredPaths = toPathArray(fs.listStatus(tablePath, filters[0]));
+    // in AWS S3, get all buckets of the table directory. And check bucket with last pathfilter because it will
+    // include all column conditions.
+    if (fileTablespace.getUri().getScheme().startsWith("s3")) {
+      statuses = fileTablespace.listStatus(tablePath, filters[filters.length - 1]);
+    } else {
+      // loop from one to the number of partition columns
+      filteredPaths = toPathArray(fileTablespace.listStatus(tablePath, filters[0]));
 
-    // Get all file status matched to a ith level path filter.
-    for (int i = 1; i < partitionColumns.size(); i++) {
-      filteredPaths = toPathArray(fs.listStatus(filteredPaths, filters[i]));
+      // Get all file status matched to a ith level path filter.
+      for (int i = 1; i < partitionColumns.size(); i++) {
+        filteredPaths = toPathArray(fileTablespace.listStatus(filteredPaths, filters[i]));
+      }
     }
 
     // Find missing partitions from filesystem
@@ -623,28 +635,12 @@ public class DDLExecutor {
     }
 
     // Find missing partitions from CatalogStore
-    Tablespace tablespace = TablespaceManager.get(tableDesc.getUri());
     List<PartitionDescProto> targetPartitions = new ArrayList<>();
-    for(Path filteredPath : filteredPaths) {
-
-      int startIdx = filteredPath.toString().indexOf(PartitionedTableRewriter.getColumnPartitionPathPrefix
-        (partitionColumns));
-
-      // if there is partition column in the path
-      if (startIdx > -1) {
-        PartitionDescProto targetPartition = getPartitionDesc(tablespace, tablePath, filteredPath);
-        if (!existingPartitionNames.contains(targetPartition.getPartitionName())) {
-          if (LOG.isDebugEnabled()) {
-            LOG.debug("Partitions not in CatalogStore:" + targetPartition.getPartitionName());
-          }
-          targetPartitions.add(targetPartition);
-        }
-      } else {
-        if (LOG.isDebugEnabled()) {
-          LOG.debug("Invalid partition path:" + filteredPath.toString());
-        }
-      }
-
+    if (fileTablespace.getUri().getScheme().startsWith("s3")) {
+      computePartitionsUsingFileStatus(partitionColumns, tablePath, targetPartitions, existingPartitionNames, statuses);
+    } else {
+      computePartitionsUsingPath(partitionColumns, fileTablespace, tablePath, targetPartitions,
+        existingPartitionNames, filteredPaths);
     }
 
     catalog.addPartitions(databaseName, simpleTableName, targetPartitions, true);
@@ -658,13 +654,54 @@ public class DDLExecutor {
     LOG.info("Total added partitions to CatalogStore: " + targetPartitions.size());
   }
 
-  private PartitionDescProto getPartitionDesc(Tablespace tablespace, Path tablePath, Path partitionPath)
-    throws IOException {
-    String partitionName = StringUtils.unescapePathName(partitionPath.toString());
+  private void computePartitionsUsingFileStatus(Schema partitionColumns, Path tablePath,
+    List<PartitionDescProto> targets, List<String> exits, FileStatus[] statuses) throws IOException {
+    for(FileStatus status : statuses) {
+      int startIdx = status.getPath().toString().indexOf(PartitionedTableRewriter.getColumnPartitionPathPrefix
+        (partitionColumns));
 
-    int startIndex = partitionName.indexOf(tablePath.toString()) + tablePath.toString().length();
-    partitionName = partitionName.substring(startIndex +  File.separator.length());
+      // if there is partition column in the path
+      if (startIdx > -1) {
+        PartitionDescProto targetPartition = getPartitionDesc(tablePath, status);
+        if (!exits.contains(targetPartition.getPartitionName())) {
+          if (LOG.isDebugEnabled()) {
+            LOG.debug("Partitions not in CatalogStore:" + targetPartition.getPartitionName());
+          }
+          targets.add(targetPartition);
+        }
+      } else {
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("Invalid partition path:" + status.getPath().toString());
+        }
+      }
 
+    }
+  }
+
+  private void computePartitionsUsingPath(Schema partitionColumns, FileTablespace fileTablespace, Path tablePath,
+    List<PartitionDescProto> targets, List<String> exits, Path[] paths) throws IOException {
+    for(Path path : paths) {
+      int startIdx = path.toString().indexOf(PartitionedTableRewriter.getColumnPartitionPathPrefix
+        (partitionColumns));
+
+      // if there is partition column in the path
+      if (startIdx > -1) {
+        PartitionDescProto targetPartition = getPartitionDesc(fileTablespace, tablePath, path);
+        if (!exits.contains(targetPartition.getPartitionName())) {
+          if (LOG.isDebugEnabled()) {
+            LOG.debug("Partitions not in CatalogStore:" + targetPartition.getPartitionName());
+          }
+          targets.add(targetPartition);
+        }
+      } else {
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("Invalid partition path:" + path);
+        }
+      }
+    }
+  }
+
+  private PartitionDescProto.Builder getPartitionDescProtoBuilder(String partitionName, Path partitionPath) {
     CatalogProtos.PartitionDescProto.Builder builder = CatalogProtos.PartitionDescProto.newBuilder();
     builder.setPartitionName(partitionName);
 
@@ -681,11 +718,32 @@ public class DDLExecutor {
     }
 
     builder.setPath(partitionPath.toString());
+    return builder;
+  }
+
+  private PartitionDescProto getPartitionDesc(FileTablespace tablespace, Path tablePath, Path partitionPath)
+    throws IOException {
+    String partitionName = StringUtils.unescapePathName(partitionPath.toString());
+    int startIndex = partitionName.indexOf(tablePath.toString()) + tablePath.toString().length();
+    partitionName = partitionName.substring(startIndex +  File.separator.length());
+
+    CatalogProtos.PartitionDescProto.Builder builder = getPartitionDescProtoBuilder(partitionName, partitionPath);
     builder.setNumBytes(tablespace.calculateSize(partitionPath));
 
     return builder.build();
   }
 
+  private PartitionDescProto getPartitionDesc(Path tablePath, FileStatus status)
+    throws IOException {
+    String partitionName = StringUtils.unescapePathName(status.getPath().toString());
+    int startIndex = partitionName.indexOf(tablePath.toString()) + tablePath.toString().length();
+    partitionName = partitionName.substring(startIndex +  File.separator.length());
+
+    CatalogProtos.PartitionDescProto.Builder builder = getPartitionDescProtoBuilder(partitionName, status.getPath());
+    builder.setNumBytes(status.getLen());
+
+    return builder.build();
+  }
 
   private void deletePartitionPath(CatalogProtos.PartitionDescProto partitionDescProto) throws IOException {
     Path partitionPath = new Path(partitionDescProto.getPath());

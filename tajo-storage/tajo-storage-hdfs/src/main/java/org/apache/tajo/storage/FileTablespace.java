@@ -300,13 +300,37 @@ public class FileTablespace extends Tablespace {
   }
 
   /**
-   * List input directories.
-   * Subclasses may override to, e.g., select only files matching a regular
-   * expression.
+   * Filter files/directories in the given path using the user-supplied path filter
    *
-   * @return array of FileStatus objects
-   * @throws IOException if zero items.
+   * @param path a path name
+   * @param filter the user-supplied path filter
+   * @return an array of FileStatus objects for the files under the given path after applying the filter
+   * @throws IOException
    */
+  public FileStatus[] listStatus(Path path, PathFilter filter) throws IOException {
+    return fs.listStatus(path, filter);
+  }
+
+  /**
+   * Filter files/directories in the given path using the user-supplied path filter
+   *
+   * @param paths  a list of paths
+   * @param filter the user-supplied path filter
+   * @return an array of FileStatus objects for the files under the given path after applying the filter
+   * @throws IOException
+   */
+  public FileStatus[] listStatus(Path[] paths, PathFilter filter) throws IOException {
+    return fs.listStatus(paths, filter);
+  }
+
+  /**
+     * List input directories.
+     * Subclasses may override to, e.g., select only files matching a regular
+     * expression.
+     *
+     * @return array of FileStatus objects
+     * @throws IOException if zero items.
+     */
   protected List<FileStatus> listStatus(Path... dirs) throws IOException {
     List<FileStatus> result = new ArrayList<>();
     if (dirs.length == 0) {

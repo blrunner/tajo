@@ -20,6 +20,7 @@ package org.apache.tajo.storage.s3;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.List;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -35,13 +36,17 @@ import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.iterable.S3Objects;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.Lists;
 import com.google.common.primitives.Ints;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.PathFilter;
 import org.apache.tajo.conf.TajoConf;
 import org.apache.tajo.storage.FileTablespace;
 
@@ -49,6 +54,7 @@ import net.minidev.json.JSONObject;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class S3TableSpace extends FileTablespace {
   private final static Log LOG = LogFactory.getLog(S3TableSpace.class);
@@ -57,6 +63,7 @@ public class S3TableSpace extends FileTablespace {
   private boolean useInstanceCredentials;
   //use a custom endpoint?
   public static final String ENDPOINT = "fs.s3a.endpoint";
+  private static final DataSize BLOCK_SIZE = new DataSize(32, MEGABYTE);
 
   public S3TableSpace(String spaceName, URI uri, JSONObject config) {
     super(spaceName, uri, config);
@@ -151,6 +158,64 @@ public class S3TableSpace extends FileTablespace {
       key = key.substring(0, key.length() - 1);
     }
     return key;
+  }
+
+  @Override
+  public FileStatus[] listStatus(Path[] paths, PathFilter filter) throws IOException {
+    List<FileStatus> results = Lists.newArrayList();
+    for (Path path : paths) {
+      listStatus(results, path, filter);
+    }
+    return results.toArray(new FileStatus[results.size()]);
+  }
+
+  @Override
+  public FileStatus[] listStatus(Path path, PathFilter filter) throws IOException {
+    List<FileStatus> results = Lists.newArrayList();
+    listStatus(results, path, filter);
+    return results.toArray(new FileStatus[results.size()]);
+  }
+
+  private void listStatus(List<FileStatus> results, Path path, PathFilter filter) throws IOException {
+    long startTime = System.currentTimeMillis();
+
+    String prefix = keyFromPath(path);
+    if (!prefix.isEmpty()) {
+      prefix += "/";
+    }
+
+    Iterable<S3ObjectSummary> objectSummaries = S3Objects.withPrefix(s3, uri.getHost(), prefix);
+    for (S3ObjectSummary summary : objectSummaries) {
+      if (summary.getSize() >0 && !summary.getKey().endsWith("/")) {
+        Path bucketPath = getPathFromBucket(summary);
+        String fileName = bucketPath.getName();
+        if (!fileName.startsWith("_") && !fileName.startsWith(".")) {
+          String pathString = bucketPath.toString();
+          int beginIndex = pathString.indexOf(fileName);
+          Path partitionPath = new Path(pathString.substring(0, beginIndex));
+          FileStatus fileStatus = getFileStatusFromBucket(summary, partitionPath);
+          if (filter.accept(partitionPath) && !results.contains(fileStatus)) {
+            results.add(fileStatus);
+          }
+        }
+      }
+    }
+
+    long finishTime = System.currentTimeMillis();
+    long elapsedMills = finishTime - startTime;
+    LOG.info(String.format("Filter S3Objects: %d ms elapsed -> %s", elapsedMills, path));
+  }
+
+  private FileStatus getFileStatusFromBucket(S3ObjectSummary summary, Path path) {
+    return new FileStatus(summary.getSize(), false, 1, BLOCK_SIZE.toBytes(),
+      summary.getLastModified().getTime(), path);
+  }
+
+  private Path getPathFromBucket(S3ObjectSummary summary) {
+    String bucketName = summary.getBucketName();
+    String pathString = uri.getScheme() + "://" + bucketName + "/" + summary.getKey();
+    Path path = new Path(pathString);
+    return path;
   }
 
   @VisibleForTesting
